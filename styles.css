@@ -1,0 +1,1444 @@
+/* =============================================================================
+ * Creative Atlas+ — styles.css
+ * Barbara's "Soft-Neutral Analytics" design system, ported 1:1 to plain CSS.
+ *
+ * No Tailwind, no build step. Class names MIRROR Barbara so markup reads the same
+ * (.card, .kpi-grid, .delta-chip, .status-pill, .btn-primary, …). This file is the
+ * single owner of the design law for all 7 screen builders. Consume these classes
+ * and these tokens; never re-derive a value that exists here.
+ *
+ * Sourced verbatim from:
+ *   - barbara/dashboards/product/app/globals.css   (base button/anchor transition,
+ *     active:scale(0.97), tr transition — ported VERBATIM below)
+ *   - barbara/dashboards/product/components/motion.ts (--ease-apple, durations,
+ *     20ms stagger, 160/220/140ms, 380/32/0.9 spring feel)
+ *   - DESIGN-SYSTEM.md (Option 2 "Soft-Neutral Analytics") + SOURCES §2
+ *
+ * Light theme only. ALL motion is guarded behind
+ *   @media (prefers-reduced-motion: no-preference)
+ * Under reduce: no transforms/transitions, numbers/charts render final state,
+ * cards appear at full opacity.
+ * ========================================================================== */
+
+/* =============================================================================
+ * 1. DESIGN TOKENS (SOURCES §2.2–§2.6 — exact values)
+ * ========================================================================== */
+:root {
+  /* ── Fonts ────────────────────────────────────────────────────────────── */
+  --font-sans: "Poppins", system-ui, -apple-system, sans-serif;
+  --font-display: "Cabinet Grotesk", "Poppins", system-ui, sans-serif;
+
+  /* ── Surfaces ─────────────────────────────────────────────────────────── */
+  --canvas: #F7F7F7;                        /* page bg (matches live app) */
+  --surface: #FFFFFF;                       /* card body */
+  --surface-raised: #FAFAFA;                /* inner panels (gauge container, etc.) */
+  --border-card: rgba(228, 228, 231, 0.7);  /* card 1px border (zinc-200 @ 70%) */
+  --border-outline: #E4E4E7;                /* button + input border (zinc-200) */
+  --divider: #F4F4F5;                       /* intra-card 1px divider (zinc-100) */
+
+  /* ── Ink ramp (zinc) ──────────────────────────────────────────────────── */
+  --ink-900: #18181B;   /* headings, KPI numerals */
+  --ink-700: #3F3F46;   /* emphasis / hover */
+  --ink-600: #52525B;   /* default body */
+  --ink-500: #71717A;   /* meta / subtitle */
+  --ink-400: #A1A1AA;   /* axes / captions / decimal portion */
+  --ink-300: #D4D4D8;   /* disabled / breadcrumb separator */
+  --ink-200: #E4E4E7;   /* inert dividers / gauge ticks */
+  --ink-100: #F4F4F5;
+
+  /* ── Categorical (DATA SERIES ONLY — never on chrome) ─────────────────── */
+  --c-orange:  #F97316;  --c-orange-soft:  rgba(249, 115, 22, 0.12);
+  --c-emerald: #10B981;  --c-emerald-soft: rgba(16, 185, 129, 0.12);
+  --c-sky:     #0EA5E9;  --c-sky-soft:     rgba(14, 165, 233, 0.12);
+  --c-violet:  #8B5CF6;  --c-violet-soft:  rgba(139, 92, 246, 0.12);
+  --c-teal:    #14B8A6;  --c-teal-soft:    rgba(20, 184, 166, 0.12);
+  --c-indigo:  #6366F1;  --c-indigo-soft:  rgba(99, 102, 241, 0.12);
+  --c-fuchsia: #D946EF;  --c-fuchsia-soft: rgba(217, 70, 239, 0.12);
+  --c-cyan:    #06B6D4;  --c-cyan-soft:    rgba(6, 182, 212, 0.12);
+  --c-amber:   #F59E0B;  --c-amber-soft:   rgba(245, 158, 11, 0.12);
+
+  /* Platform → color (consistent everywhere: donut, bubbles, legends) */
+  --p-meta:     var(--c-sky);     /* Meta = sky */
+  --p-tiktok:   #27272A;          /* TikTok = dark slate (brand near-black) */
+  --p-google:   var(--c-orange);  /* Google = orange */
+  --p-arabyads: var(--c-violet);  /* ArabyAds = violet */
+  --p-snapchat: var(--c-amber);   /* Snapchat = amber */
+
+  /* Market → color (consistent everywhere) */
+  --m-ksa: var(--c-orange);   /* KSA */
+  --m-uae: var(--c-emerald);  /* UAE */
+  --m-kwt: var(--c-sky);      /* KWT */
+  --m-qat: var(--c-violet);   /* QAT */
+  --m-bhr: var(--c-teal);     /* BHR */
+  --m-omn: var(--c-indigo);   /* OMN — cold-start; render dashed/seeding */
+
+  /* ── Brand green — SINGLE-USE ONLY (gauge gradient end / one hero accent) ─ */
+  --brand: #0A9D60;
+  --gauge-start: #FBBF24;   /* gauge gradient start (amber) */
+  --gauge-end:   #0A9D60;   /* gauge gradient end (brand green) */
+
+  /* ── State colors — "no color alone": stripe + text + dot ─────────────── */
+  --positive-text: #059669;  --positive-bg: #ECFDF5;  --positive-dot: #10B981;
+  --warning-text:  #B45309;  --warning-bg:  #FFFBEB;  --warning-dot:  #F59E0B;
+  --negative-text: #E11D48;  --negative-bg: #FFF1F2;  --negative-dot: #F43F5E;
+  --neutral-text:  #71717A;  --neutral-bg:  #F4F4F5;  --neutral-dot:  #A1A1AA;
+
+  /* ── Chart neutrals (SOURCES §2.7) ────────────────────────────────────── */
+  --track:    #E4E4E7;   /* gauge track / crosshair / empty bars */
+  --gridline: #F4F4F5;   /* chart gridlines */
+  --axis:     #A1A1AA;   /* axis tick labels */
+
+  /* ── Radii (SOURCES §2.3) ─────────────────────────────────────────────── */
+  --radius-stripe: 2px;    /* left color stripes / swatches */
+  --radius-chip:   6px;    /* chips, status badges, delta chips */
+  --radius-control: 8px;   /* buttons, inputs, tab pills, tab container */
+  --radius-panel:  12px;   /* inner panels */
+  --radius-card:   16px;   /* outer cards & KPI tiles */
+  --radius-full:   9999px; /* dots, avatars, round buttons */
+
+  /* ── Shadows (SOURCES §2.2) ───────────────────────────────────────────── */
+  --shadow-card:    0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-tab:     0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-tooltip: 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  /* ── Motion (SOURCES §2.8 — VERBATIM from motion.ts) ──────────────────── */
+  --ease-apple: cubic-bezier(0.16, 1, 0.3, 1);  /* appleOut — fast start, gentle finish */
+  --dur-reveal:    160ms;   /* card mount fade-up */
+  --dur-xfade-in:  220ms;   /* screen/tab cross-fade IN */
+  --dur-xfade-out: 140ms;   /* screen/tab cross-fade OUT */
+  --dur-color:     150ms;   /* color/bg/border transitions */
+  --dur-press:     120ms;   /* button press transform */
+  --dur-gauge:     450ms;   /* gauge value-arc draw-in */
+  --stagger:       20ms;    /* per-card / per-item reveal stagger */
+
+  /* ── Per-screen accent (each .screen overrides --accent; default orange) ─
+   * Consumed by .insight-banner stripe/wash, .is-flash ring, stripes, sparks.
+   * Screens are mapped to their §3.3 accent via [data-screen="…"] below. */
+  --accent: var(--c-orange);
+  --accent-soft: var(--c-orange-soft);
+}
+
+/* Per-screen accent map (SOURCES §3.3). A screen builder writes
+ * <section class="screen" data-screen="<id>"> and the right accent flows into
+ * --accent / --accent-soft automatically, so stripes/banners/flashes are on-key. */
+[data-screen="command-center"]        { --accent: var(--c-orange);  --accent-soft: var(--c-orange-soft);  }
+[data-screen="creative-intelligence"] { --accent: var(--c-violet);  --accent-soft: var(--c-violet-soft);  }
+[data-screen="cohort-economics"]      { --accent: var(--c-emerald); --accent-soft: var(--c-emerald-soft); }
+[data-screen="spend-efficiency"]      { --accent: var(--c-sky);     --accent-soft: var(--c-sky-soft);     }
+[data-screen="daily-pulse"]           { --accent: var(--c-teal);    --accent-soft: var(--c-teal-soft);    }
+[data-screen="ask-calo"]              { --accent: var(--c-indigo);  --accent-soft: var(--c-indigo-soft);  }
+[data-screen="frontier"]              { --accent: var(--c-fuchsia); --accent-soft: var(--c-fuchsia-soft); }
+
+/* =============================================================================
+ * 2. RESET + BASE
+ * ========================================================================== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  border: 0 solid var(--border-outline);
+  outline-color: rgba(10, 157, 96, 0.5);
+}
+
+html {
+  font-family: var(--font-sans);
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink-600);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* tabular numerals on every numeric surface */
+body,
+.kpi-numeral,
+.display-stat,
+.display-kpi,
+.delta-chip,
+.status-pill,
+[data-num],
+table,
+.tabular {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+svg {
+  display: block;
+}
+
+img {
+  max-width: 100%;
+  display: block;
+}
+
+/* =============================================================================
+ * 3. BASE INTERACTION (PORTED VERBATIM from Barbara globals.css @layer base)
+ *    Apple-style press feedback on every interactive button + link.
+ *    Subtle (97%) so it feels physical, not bouncy. Reduced-motion respected.
+ * ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  button,
+  a[role="button"] {
+    transition: transform 120ms cubic-bezier(0.16, 1, 0.3, 1),
+                background-color 150ms ease-out,
+                color 150ms ease-out,
+                border-color 150ms ease-out,
+                opacity 150ms ease-out;
+  }
+  button:active:not(:disabled),
+  a[role="button"]:active {
+    transform: scale(0.97);
+  }
+}
+
+/* Table rows + drawer rows — smooth hover bg (verbatim) */
+tr {
+  transition: background-color 150ms ease-out;
+}
+
+/* Focus ring — codified (DESIGN-SYSTEM §10). Never outline-none without a ring. */
+:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-300);
+  border-radius: var(--radius-control);
+}
+input:focus-visible,
+.search-input:focus-within {
+  box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink-400);
+}
+
+/* =============================================================================
+ * 4. TYPOGRAPHY ROLES (SOURCES §2.5 — px / line-height / weight)
+ * ========================================================================== */
+.display-kpi {
+  font-size: 40px;
+  line-height: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink-900);
+}
+
+/* The big KPI numeral — DOMINATES. 800–900 so it leads the read. */
+.kpi-numeral {
+  font-size: 40px;
+  line-height: 40px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--ink-900);
+}
+
+.page-title {
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink-900);
+}
+
+/* Hero page variant — display 32/40/800 (use sparingly on hero pages) */
+.page-title.is-hero {
+  font-family: var(--font-display);
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 800;
+}
+
+.card-title {
+  font-size: 16px;
+  line-height: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+}
+
+.subtitle {
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--ink-500);
+}
+
+.display-stat {
+  font-size: 26px;
+  line-height: 28px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+}
+
+.body-lg {
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  color: var(--ink-600);
+}
+
+.body {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 400;
+  color: var(--ink-600);
+}
+
+.body-sm {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--ink-600);
+}
+
+.label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink-600);
+}
+
+.caption {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  color: var(--ink-400);
+}
+
+.eyebrow {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-500);
+}
+
+/* Ink helpers (use the named role above first; these are for one-off overrides) */
+.ink-900 { color: var(--ink-900); }
+.ink-700 { color: var(--ink-700); }
+.ink-600 { color: var(--ink-600); }
+.ink-500 { color: var(--ink-500); }
+.ink-400 { color: var(--ink-400); }
+.ink-300 { color: var(--ink-300); }
+.mono-tnum { font-variant-numeric: tabular-nums; }
+
+/* =============================================================================
+ * 5. APP SHELL (sidebar 288 = 64 rail + 224 panel; main centered max 1280)
+ *    Layout primitives; the shell builder owns the markup.
+ * ========================================================================== */
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  display: flex;
+  flex-shrink: 0;
+  width: 288px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border-card);
+}
+
+.sidebar-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 64px;
+  flex-shrink: 0;
+  padding: 16px 0;
+  gap: 8px;
+  border-right: 1px solid var(--divider);
+}
+
+.sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  width: 224px;
+  flex-shrink: 0;
+  padding: 16px 12px;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+/* Rail icon button — active sliding pill */
+.rail-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-control);
+  color: var(--ink-400);
+  transition: color var(--dur-color) ease-out, background-color var(--dur-color) ease-out;
+}
+.rail-icon:hover { color: var(--ink-700); }
+.rail-icon.is-active {
+  color: var(--ink-900);
+  background: var(--ink-100);
+}
+.rail-icon svg { width: 20px; height: 20px; stroke-width: 1.5; }
+
+/* Account / workspace selector */
+.account-selector {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: 48px;
+  padding: 0 10px;
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.account-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--brand);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* Nav leaf (panel) */
+.nav-leaf {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 8px;
+  border-radius: var(--radius-chip);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--ink-600);
+  transition: background-color var(--dur-color) ease-out, color var(--dur-color) ease-out;
+}
+.nav-leaf:hover { background: rgba(250, 250, 250, 0.8); color: var(--ink-900); }
+.nav-leaf.is-active {
+  background: var(--ink-100);
+  font-weight: 500;
+  color: var(--ink-900);
+}
+.nav-leaf svg { width: 16px; height: 16px; flex-shrink: 0; stroke-width: 1.5; }
+.nav-leaf .leaf-dot {
+  margin-left: auto;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.nav-leaf .leaf-badge {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: var(--radius-full);
+  background: var(--c-teal);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+/* Trust proof chip (sidebar footer — signature Barbara element) */
+.trust-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: auto;
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  background: var(--positive-bg);
+  color: var(--positive-text);
+  font-size: 11px;
+  font-weight: 500;
+  transition: background-color var(--dur-color) ease-out;
+}
+.trust-chip .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--positive-dot);
+  flex-shrink: 0;
+}
+
+/* Main column */
+.main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-wrap {
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 28px 32px;        /* px-8 py-7 */
+}
+
+/* Top bar (sticky header inside main — persistent, never cross-fades) */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  padding: 0 32px;
+  background: rgba(247, 247, 247, 0.85);
+  backdrop-filter: saturate(1.2) blur(8px);
+  border-bottom: 1px solid var(--divider);
+}
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+/* =============================================================================
+ * 6. CARD + CARD HEADER (SOURCES §2.6)
+ * ========================================================================== */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 20px 24px 16px;   /* px-6 pt-5 pb-4 */
+}
+.card-header .header-text { min-width: 0; }
+.card-header .card-title { margin: 0; }
+.card-header .card-subtitle {
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 18px;
+  color: var(--ink-500);
+}
+.card-header .header-right {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.card-body {
+  padding: 16px 24px;        /* px-6 py-4 */
+}
+.card-pad {                  /* px-6 py-5 outer default */
+  padding: 20px 24px;
+}
+
+/* Inner raised panel (gauge container, plan progress, etc.) */
+.surface-raised {
+  background: var(--surface-raised);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-panel);
+  padding: 16px 16px 12px;   /* px-4 pt-4 pb-3 */
+}
+
+/* Intra-card divider */
+.divider-top { border-top: 1px solid var(--divider); }
+.divider-bottom { border-bottom: 1px solid var(--divider); }
+
+/* =============================================================================
+ * 7. KPI GRID + KPI CELL (SOURCES §2.6 — 1px dividers via gap + bg)
+ * ========================================================================== */
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 4), 1fr);
+  gap: 1px;
+  background: var(--divider);   /* shows through as 1px dividers */
+}
+.kpi-grid.cols-2 { --cols: 2; }
+.kpi-grid.cols-3 { --cols: 3; }
+.kpi-grid.cols-4 { --cols: 4; }
+.kpi-grid.cols-5 { --cols: 5; }
+
+/* ── KPI strips removed from every screen (Hadi 2026-06-30) ──────────────────
+ * Each screen's top KPI strip is a standalone card wrapping a .kpi-grid. Hide
+ * that card on every screen. We HIDE rather than delete the markup so each
+ * screen's init JS still finds + populates the cells (no null-deref), keeping
+ * the rest of the screen (charts, verdicts, lists) fully working. */
+.card:has(> .kpi-grid) { display: none !important; }
+
+.kpi-cell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--surface);
+  padding: 20px 24px;          /* px-6 py-5 */
+  min-width: 0;
+}
+
+/* Label row: 3px-wide × 12px-tall color stripe + label */
+.kpi-label-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.kpi-stripe {
+  width: 3px;
+  height: 12px;
+  border-radius: var(--radius-stripe);
+  background: var(--accent);   /* default screen accent; override inline for per-series */
+  flex-shrink: 0;
+}
+.kpi-label {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--ink-600);
+}
+
+/* Meta line under label */
+.kpi-meta {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 400;
+  color: var(--ink-400);
+}
+
+/* Value row: big numeral + right-aligned delta/visual */
+.kpi-value-row {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Visual row (sparkline 88×28 / mini-bars / qualifier) */
+.kpi-visual {
+  display: flex;
+  align-items: flex-end;
+  min-height: 28px;
+}
+
+/* =============================================================================
+ * 8. DELTA CHIP (SOURCES §2.6 — tone DECOUPLED from direction)
+ * ========================================================================== */
+.delta-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: var(--radius-chip);
+  padding: 2px 6px;            /* px-1.5 py-0.5 */
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.delta-chip .arrow { font-size: 10px; line-height: 1; font-weight: 700; }
+/* Direction classes set the arrow glyph; tone classes set the colors.
+ * Pass tone=positive on a good-when-down metric (CAC ↓) so a ▼ shows green. */
+.delta-chip.up   .arrow::before  { content: "\25B2"; }   /* ▲ */
+.delta-chip.down .arrow::before  { content: "\25BC"; }   /* ▼ */
+
+/* Tone (colors) — default ties to direction unless a tone class overrides */
+.delta-chip.up,
+.delta-chip.tone-positive {
+  background: var(--positive-bg);
+  color: var(--positive-text);
+}
+.delta-chip.down,
+.delta-chip.tone-negative {
+  background: var(--negative-bg);
+  color: var(--negative-text);
+}
+.delta-chip.tone-warning {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+.delta-chip.neutral,
+.delta-chip.tone-neutral {
+  background: var(--neutral-bg);
+  color: var(--neutral-text);
+}
+.delta-chip.neutral .arrow { display: none; }
+
+/* =============================================================================
+ * 9. STATUS PILL (SOURCES §2.6 — always dot + text, never color-only)
+ * ========================================================================== */
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: var(--radius-chip);
+  padding: 4px 8px;            /* px-2 py-1 */
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.status-pill .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+}
+.status-pill.positive { background: var(--positive-bg); color: var(--positive-text); }
+.status-pill.positive .dot { background: var(--positive-dot); }
+.status-pill.warning  { background: var(--warning-bg);  color: var(--warning-text); }
+.status-pill.warning .dot  { background: var(--warning-dot); }
+.status-pill.negative { background: var(--negative-bg); color: var(--negative-text); }
+.status-pill.negative .dot { background: var(--negative-dot); }
+.status-pill.neutral  { background: var(--neutral-bg);  color: var(--neutral-text); }
+.status-pill.neutral .dot  { background: var(--neutral-dot); }
+
+/* =============================================================================
+ * 10. BUTTONS (SOURCES §2.6) — press feel inherited from §3 base rule
+ * ========================================================================== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-control);
+  background: var(--ink-900);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.btn-primary:hover { background: #27272A; }            /* zinc-800 */
+.btn-primary:active:not(:disabled) { background: #09090B; }  /* zinc-950 */
+.btn-primary .arrow { font-weight: 700; }
+
+.btn-outline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-700);
+  font-size: 13px;
+  font-weight: 500;
+}
+.btn-outline:hover { background: #FAFAFA; }            /* zinc-50 */
+.btn-outline svg { width: 14px; height: 14px; stroke-width: 1.75; }
+.btn-outline .chev {
+  font-size: 10px;
+  color: var(--ink-400);
+  transition: transform 150ms var(--ease-apple);
+}
+.btn-outline[aria-expanded="true"] .chev { transform: rotate(180deg); }
+
+/* Small chip-button variant (insight-banner CTAs, h-7) */
+.btn-outline.btn-sm {
+  height: 28px;
+  padding: 0 10px;
+  font-size: 12px;
+  gap: 6px;
+  border-radius: var(--radius-chip);
+}
+
+.btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border-outline);
+  background: var(--surface);
+  color: var(--ink-500);
+}
+.btn-icon:hover { background: #FAFAFA; color: var(--ink-700); }
+.btn-icon svg { width: 16px; height: 16px; stroke-width: 1.75; }
+
+button:disabled,
+.btn-primary:disabled,
+.btn-outline:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================================================================
+ * 11. TAB BAR (SOURCES §2.6 — active pill slides)
+ * ========================================================================== */
+.tab-bar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-control);
+  background: rgba(244, 244, 245, 0.7);   /* zinc-100/70 */
+}
+.tab {
+  position: relative;
+  z-index: 1;
+  border-radius: var(--radius-chip);
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink-500);
+  transition: color var(--dur-color) ease-out;
+}
+.tab:hover { color: var(--ink-900); }
+.tab.is-active { color: var(--ink-900); }
+/* Sliding active pill — JS positions/sizes this glider; CSS animates it. */
+.tab-glider {
+  position: absolute;
+  top: 4px;
+  left: 0;
+  height: calc(100% - 8px);
+  border-radius: var(--radius-chip);
+  background: var(--surface);
+  box-shadow: var(--shadow-tab);
+  z-index: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .tab-glider { transition: transform var(--dur-xfade-in) var(--ease-apple),
+                            width var(--dur-xfade-in) var(--ease-apple); }
+}
+/* Fallback if no glider element: active tab paints its own white pill */
+.tab-bar:not(:has(.tab-glider)) .tab.is-active {
+  background: var(--surface);
+  box-shadow: var(--shadow-tab);
+}
+
+/* =============================================================================
+ * 12. SEARCH INPUT (⌘K) (SOURCES §2.6)
+ * ========================================================================== */
+.search-input {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  width: 280px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink-500);
+  font-size: 13px;
+}
+.search-input svg { width: 14px; height: 14px; stroke-width: 1.75; color: var(--ink-400); flex-shrink: 0; }
+.search-input .search-placeholder { flex: 1; text-align: left; }
+.search-input .kbd,
+.kbd {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 20px;
+  padding: 0 6px;
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-chip);
+  background: #FAFAFA;
+  color: var(--ink-500);
+  font-size: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+ * 13. BREADCRUMB (SOURCES §2.6)
+ * ========================================================================== */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--ink-500);
+}
+.breadcrumb .sep { color: var(--ink-300); }
+.breadcrumb .crumb-current { color: var(--ink-900); font-weight: 500; }
+.breadcrumb .crumb-swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-stripe);
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+ * 14. STRIPE + EYEBROW helpers
+ * ========================================================================== */
+/* Generic left color stripe (set background inline or via --accent) */
+.stripe {
+  width: 3px;
+  border-radius: var(--radius-stripe);
+  background: var(--accent);
+  flex-shrink: 0;
+  align-self: stretch;
+}
+.stripe-2 { width: 2px; }
+.stripe-4 { width: 4px; }
+/* Color swatch (legend dot/square) */
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-stripe);
+  flex-shrink: 0;
+}
+.swatch.round { border-radius: var(--radius-full); width: 8px; height: 8px; }
+.swatch.dashed { background: transparent !important; border: 1.5px dashed currentColor; }
+
+/* =============================================================================
+ * 15. INSIGHT BANNER (the recurring "Atlas is thinking" element)
+ *     Calm note, NOT a loud alert. 2px left stripe + soft accent wash.
+ * ========================================================================== */
+.insight-banner {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px 24px;          /* px-6 py-4 */
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  background:
+    linear-gradient(0deg,
+      color-mix(in srgb, var(--accent) 5%, transparent),
+      color-mix(in srgb, var(--accent) 5%, transparent)),
+    var(--surface);
+  overflow: hidden;
+}
+/* 2px left stripe in the screen accent */
+.insight-banner::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+}
+/* Leading "Atlas voice" glyph tile (28px rounded-md soft-accent) */
+.insight-banner .insight-glyph {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border-radius: var(--radius-chip);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.insight-banner .insight-glyph svg { width: 16px; height: 16px; }
+.insight-banner .insight-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 20px;
+  color: var(--ink-600);
+}
+.insight-banner .insight-text strong { color: var(--ink-900); font-weight: 600; }
+.insight-banner .insight-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* =============================================================================
+ * 16. PROTOTYPE BADGE + small chips
+ * ========================================================================== */
+.proto-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-chip);
+  background: var(--warning-bg);
+  color: var(--warning-text);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.proto-badge .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--warning-dot);
+  flex-shrink: 0;
+}
+
+/* Generic small chip (filter chip, "filters used", suggested chips) */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border-radius: var(--radius-chip);
+  background: var(--ink-100);
+  color: var(--ink-600);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.chip.is-interactive { transition: background-color var(--dur-color) ease-out; border: 1px solid var(--border-outline); background: var(--surface); }
+.chip.is-interactive:hover { background: #FAFAFA; }
+
+/* =============================================================================
+ * 17. DROPDOWN / POPOVER / MENU (period + region controls, methodology popover)
+ * ========================================================================== */
+.menu {
+  position: absolute;
+  z-index: 50;
+  min-width: 200px;
+  padding: 4px 0;
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-tooltip);
+  transform-origin: top;
+}
+.menu.is-hidden { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .menu { animation: menu-in 120ms var(--ease-apple); }
+}
+@keyframes menu-in {
+  from { opacity: 0; transform: translateY(-4px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--ink-700);
+  text-align: left;
+  transition: background-color var(--dur-color) ease-out;
+}
+.menu-item:hover { background: rgba(250, 250, 250, 0.8); }
+.menu-item .check { margin-left: auto; color: var(--ink-900); width: 14px; height: 14px; }
+.menu-item .menu-dot { width: 8px; height: 8px; border-radius: var(--radius-full); flex-shrink: 0; }
+.menu-caption { padding: 6px 12px 4px; font-size: 11px; color: var(--ink-400); }
+
+/* Popover card (methodology / how-it-works) */
+.popover {
+  position: absolute;
+  z-index: 50;
+  width: 320px;
+  padding: 16px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-tooltip);
+}
+/* Popovers are closed until opened — the methodology/help popovers default to
+ * .is-hidden and only this rule actually hid them (was missing → they rendered
+ * open over their neighbour card). */
+.popover.is-hidden { display: none !important; }
+
+/* =============================================================================
+ * 18. CHART TOOLTIP (floating div — SOURCES §2.7)
+ * ========================================================================== */
+.chart-tooltip {
+  position: absolute;
+  z-index: 40;
+  min-width: 160px;
+  padding: 10px 12px;          /* px-3 py-2.5 */
+  border: 1px solid var(--border-outline);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-tooltip);
+  pointer-events: none;
+}
+.chart-tooltip .tt-date {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-500);
+  margin-bottom: 6px;
+}
+.chart-tooltip .tt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--ink-700);
+  padding: 1px 0;
+}
+.chart-tooltip .tt-dot { width: 8px; height: 8px; border-radius: var(--radius-full); flex-shrink: 0; }
+.chart-tooltip .tt-name { flex: 1; }
+.chart-tooltip .tt-val { font-weight: 600; color: var(--ink-900); font-variant-numeric: tabular-nums; }
+
+/* SVG chart neutrals — carried as classes (var() can't resolve in SVG attrs) */
+.ca-grid  { stroke: var(--gridline); }
+.ca-axis  { fill: var(--axis); }
+.ca-track { stroke: var(--track); }
+.ca-track-fill { fill: var(--track); }
+.ca-surface-fill { fill: var(--surface); }
+
+/* =============================================================================
+ * 19. TABLE / ROW (hover bg per Barbara)
+ * ========================================================================== */
+.data-table { width: 100%; border-collapse: collapse; }
+.data-table thead th {
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-500);
+  text-align: left;
+  padding: 10px 24px;          /* eyebrow header strip px-6 py-2.5 */
+  border-bottom: 1px solid var(--divider);
+}
+.data-table tbody td {
+  font-size: 13px;
+  color: var(--ink-600);
+  padding: 16px 24px;          /* px-6 py-4 */
+  border-bottom: 1px solid var(--divider);
+}
+.data-table tbody tr:last-child td { border-bottom: 0; }
+.data-table tbody tr:hover { background: rgba(250, 250, 250, 0.6); }   /* zinc-50/60 */
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink-900); }
+
+/* Generic interactive row (lists) */
+.list-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--divider);
+  transition: background-color var(--dur-color) ease-out;
+}
+.list-row:hover { background: rgba(250, 250, 250, 0.6); }
+.list-row:first-child { border-top: 0; }
+
+/* =============================================================================
+ * 20. SEGMENTED PROGRESS BAR (Efficiency Score / Trust Ladder)
+ * ========================================================================== */
+.segbar {
+  display: flex;
+  gap: 4px;
+}
+.segbar .seg {
+  height: 8px;
+  flex: 1;
+  border-radius: var(--radius-stripe);
+  background: var(--ink-200);
+  transition: box-shadow var(--dur-color) ease-out, background-color var(--dur-color) ease-out;
+}
+.segbar .seg.is-filled { background: var(--accent); }
+.segbar .seg.is-active {
+  background: var(--accent);
+  box-shadow: 0 0 12px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+
+/* =============================================================================
+ * 21. EMPTY / SEEDING / COLD-START state (OMN render — SOURCES §2.9 / §5)
+ * ========================================================================== */
+.seeding {
+  border-style: dashed !important;
+  color: var(--ink-400);
+}
+.seeding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px dashed var(--ink-300);
+  border-radius: var(--radius-chip);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ink-500);
+  background: var(--divider);
+}
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 120px;
+  text-align: center;
+  color: var(--ink-400);
+}
+.empty-state .empty-title { font-size: 13px; font-weight: 600; color: var(--ink-900); }
+.empty-state .empty-desc  { font-size: 12px; color: var(--ink-500); }
+
+/* =============================================================================
+ * 22. LAYOUT GRID HELPERS (so screens don't re-derive the templates)
+ * ========================================================================== */
+.grid-row     { display: grid; gap: 20px; }                                   /* gap-section */
+.grid-2       { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid-3       { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.grid-16-1    { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); }       /* chart row */
+.stack        { display: flex; flex-direction: column; gap: 24px; }            /* gap-page */
+.stack-section{ display: flex; flex-direction: column; gap: 20px; }            /* gap-section */
+.row          { display: flex; align-items: center; }
+.row-gap-2    { gap: 8px; } .row-gap-3 { gap: 12px; } .row-gap-4 { gap: 16px; }
+.between      { justify-content: space-between; }
+.wrap         { flex-wrap: wrap; }
+
+/* =============================================================================
+ * 23. SCREEN CONTAINER + CROSS-FADE (SPA router shows/hides screens)
+ *     Out: opacity 1→0, translateY(0→−4px) 140ms.
+ *     In : opacity 0→1, translateY(6px→0) 220ms.
+ *     Screens are HIDDEN, not destroyed (keep-alive). initFn runs once.
+ * ========================================================================== */
+.screen {
+  /* Default resting state for the active screen. The [hidden] attr removes it. */
+}
+.screen[hidden] { display: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .screen.is-entering {
+    animation: screen-in var(--dur-xfade-in) var(--ease-apple) both;
+  }
+  .screen.is-leaving {
+    animation: screen-out var(--dur-xfade-out) var(--ease-apple) both;
+  }
+}
+@keyframes screen-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes screen-out {
+  from { opacity: 1; transform: translateY(0); }
+  to   { opacity: 0; transform: translateY(-4px); }
+}
+
+/* =============================================================================
+ * 24. REVEAL ON SCROLL (.reveal → .is-in)
+ *     opacity 0→1 + translateY(12px→0), 160ms, --ease-apple, staggered --i*20ms.
+ * ========================================================================== */
+.reveal {
+  /* Resting (pre-reveal) state ONLY when motion is allowed (set below). */
+}
+@media (prefers-reduced-motion: no-preference) {
+  .reveal {
+    opacity: 0;
+    transform: translateY(12px);
+    transition: opacity var(--dur-reveal) var(--ease-apple),
+                transform var(--dur-reveal) var(--ease-apple);
+    transition-delay: calc(var(--i, 0) * var(--stagger));
+    will-change: opacity, transform;
+  }
+  .reveal.is-in {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+/* Under reduced motion (and as a no-JS safety net), .reveal is always visible. */
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; }
+}
+
+/* =============================================================================
+ * 25. DEEP-LINK FOCUS FLASH (.is-flash — router applies after scroll)
+ *     600ms accent ring pulse in the screen accent at low alpha.
+ * ========================================================================== */
+@media (prefers-reduced-motion: no-preference) {
+  .is-flash { animation: flash-ring 600ms var(--ease-apple); }
+}
+@keyframes flash-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 33%, transparent); }
+  60%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 18%, transparent); }
+  100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* Local-scroll pulse on insight-banner same-screen targets (1000ms accent ring) */
+@media (prefers-reduced-motion: no-preference) {
+  .is-pulse { animation: pulse-ring 1000ms var(--ease-apple); }
+}
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 33%, transparent); }
+  50%  { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 16%, transparent); }
+  100% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 0%, transparent); }
+}
+
+/* =============================================================================
+ * 26. ⌘K COMMAND PALETTE (overlay)
+ * ========================================================================== */
+.cmdk-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(0, 0, 0, 0.18);
+}
+.cmdk-scrim.is-hidden { display: none; }
+@media (prefers-reduced-motion: no-preference) {
+  .cmdk-scrim { animation: fade-in 120ms ease-out; }
+}
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.cmdk-panel {
+  position: fixed;
+  z-index: 81;
+  top: 18vh;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 560px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-card);
+  background: var(--surface);
+  box-shadow: var(--shadow-tooltip);
+  overflow: hidden;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .cmdk-panel { animation: cmdk-in 140ms var(--ease-apple); }
+}
+@keyframes cmdk-in {
+  from { opacity: 0; transform: translateX(-50%) scale(0.97); }
+  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+}
+.cmdk-input {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--divider);
+}
+.cmdk-input input {
+  flex: 1;
+  border: 0;
+  outline: 0;
+  font-size: 14px;
+  color: var(--ink-900);
+  background: transparent;
+}
+.cmdk-input input::placeholder { color: var(--ink-400); }
+.cmdk-list { max-height: 320px; overflow-y: auto; padding: 6px; }
+.cmdk-group-label { padding: 8px 10px 4px; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--ink-400); }
+.cmdk-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: var(--radius-chip);
+  font-size: 13px;
+  color: var(--ink-700);
+  text-align: left;
+}
+.cmdk-item:hover,
+.cmdk-item.is-highlighted { background: rgba(250, 250, 250, 0.9); color: var(--ink-900); }
+.cmdk-item .cmdk-tag { margin-left: auto; font-size: 11px; color: var(--ink-400); }
+.cmdk-item svg { width: 16px; height: 16px; stroke-width: 1.5; color: var(--ink-500); }
+
+/* =============================================================================
+ * 27. BARCHART / SPARK helpers used by charts.js outputs
+ * ========================================================================== */
+.barchart {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;                    /* gap-1.5 */
+  height: 120px;
+}
+.barchart .bar {
+  flex: 1;
+  border-radius: 4px 4px 0 0;
+  background: var(--accent);
+  transform-origin: bottom;
+}
+.barchart .bar.is-forecast {
+  background: transparent;
+  border: 1px dashed color-mix(in srgb, var(--accent) 40%, transparent);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .barchart.animate .bar {
+    animation: bar-grow 320ms var(--ease-apple) both;
+    animation-delay: calc(var(--i, 0) * 40ms);
+  }
+}
+@keyframes bar-grow {
+  from { transform: scaleY(0); }
+  to   { transform: scaleY(1); }
+}
+
+/* Generic dot helper */
+.dot { display: inline-block; width: 6px; height: 6px; border-radius: var(--radius-full); flex-shrink: 0; }
+.dot-8 { width: 8px; height: 8px; }
+
+/* =============================================================================
+ * 28. UTILITY (spacing/visibility — small set so screens stay consistent)
+ * ========================================================================== */
+.mt-1 { margin-top: 4px; }  .mt-2 { margin-top: 8px; }  .mt-3 { margin-top: 12px; }
+.mt-4 { margin-top: 16px; } .mt-5 { margin-top: 20px; } .mt-6 { margin-top: 24px; }
+.mb-2 { margin-bottom: 8px; } .mb-4 { margin-bottom: 16px; }
+.ml-auto { margin-left: auto; }
+.flex { display: flex; } .items-center { align-items: center; } .items-end { align-items: flex-end; }
+.justify-between { justify-content: space-between; } .gap-2 { gap: 8px; } .gap-3 { gap: 12px; } .gap-4 { gap: 16px; }
+.flex-col { flex-direction: column; } .flex-1 { flex: 1; min-width: 0; }
+.text-right { text-align: right; } .text-center { text-align: center; }
+.w-full { width: 100%; } .relative { position: relative; }
+.sr-only {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
+.visually-hidden { /* alias */ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
+
+/* =============================================================================
+ * 29. RESPONSIVE (DESIGN-SYSTEM §15 — graceful degrade)
+ * ========================================================================== */
+@media (max-width: 1279px) {
+  .sidebar { width: 256px; }
+  .sidebar-panel { width: 192px; }
+}
+@media (max-width: 1023px) {
+  .sidebar-panel { display: none; }
+  .sidebar { width: 64px; }
+  .grid-16-1, .grid-2, .grid-3 { grid-template-columns: minmax(0, 1fr); }
+  .page-wrap { padding: 24px 20px; }
+}
+@media (max-width: 767px) {
+  .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .stack, .grid-row { gap: 16px; }
+}
