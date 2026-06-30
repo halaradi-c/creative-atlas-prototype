@@ -454,6 +454,129 @@ try{
       /* ─────────────── 6. TRUST STRIP ─────────────── */
       $('[data-cc="trust-note"]').textContent =
         "✓ ties to Meta UI ±1.2% · double-count stripped · MCC-deduped";
+
+      /* ─────────────── 7. PERFORMANCE SUMMARY (top of page) ───────────────
+         8 tiles from ATLAS.perfSummary: money line + funnel line. Count-ups +
+         sparklines fire here (once). Tone decoupled from direction (CAC/abandon ↓ = green). */
+      (function renderPerfSummary() {
+        var host = $('[data-cc="perf-summary"]');
+        if (!host) return;
+        var subEl = $('[data-cc="perf-sub"]');
+        if (subEl) subEl.textContent = A.perfSummary.length + " metrics · " + L.period.current + " · MoM vs May";
+        function disp(key, v) {
+          switch (key) {
+            case "pmSpend": return F.usdK(v);
+            case "revenue": return F.usdKM(v);
+            case "roas": return F.x(v);
+            case "paidCac": case "aov": return F.usd(v);
+            case "cvr": case "ctr": case "abandonedCart": return F.pct1(v);
+            default: return F.count(v);
+          }
+        }
+        function countTo(key, v) { return key === "revenue" ? v / 1000 : v; }
+        function countOptsFor(key) {
+          switch (key) {
+            case "pmSpend": return { format: "currency", compact: "k", decimals: 0 };
+            case "revenue": return { format: "currency", decimals: 1, suffix: "M" };
+            case "roas": return { format: "x", decimals: 1 };
+            case "paidCac": case "aov": return { format: "currency", decimals: 0 };
+            case "cvr": case "ctr": case "abandonedCart": return { format: "percent", decimals: 1 };
+            default: return { format: "plain", decimals: 0 };
+          }
+        }
+        var sparks = [];
+        A.perfSummary.forEach(function (t) {
+          var m = L.metrics[t.key] || {};
+          var tone = F.deltaTone(t.delta, m.goodDir);
+          var dir = t.delta > 0 ? "up" : t.delta < 0 ? "down" : "neutral";
+          var deltaStr = t.deltaKind === "abs" ? F.signedAbs(t.delta)
+            : t.deltaKind === "ppt" ? F.signedPpt(t.delta) : F.signedPct(t.delta);
+          var sparkColor = m.goodDir === "down" ? "#10B981" : "#F97316";
+          var cell = document.createElement("div");
+          cell.className = "perf-tile";
+          cell.innerHTML =
+            '<div class="kpi-label-row"><span class="kpi-stripe"></span><span class="kpi-label">' + esc(m.label || t.key) + '</span></div>' +
+            '<div class="perf-meta">' + esc(t.note || "") + '</div>' +
+            '<div class="perf-value-row">' +
+              '<span class="perf-num" data-pf-num data-key="' + t.key + '" data-value="' + countTo(t.key, t.value) + '">' + esc(disp(t.key, t.value)) + '</span>' +
+              '<span class="delta-chip ' + dir + ' tone-' + tone + '"><span class="arrow"></span>' + esc(deltaStr.replace(/^[+−-]?/, "")) + '</span>' +
+            '</div>' +
+            '<div class="perf-spark" data-pf-spark></div>';
+          host.appendChild(cell);
+          sparks.push({ el: cell.querySelector("[data-pf-spark]"), spark: t.spark, color: sparkColor });
+        });
+        host.querySelectorAll("[data-pf-num]").forEach(function (el) {
+          M.countUp(el, parseFloat(el.getAttribute("data-value")), countOptsFor(el.getAttribute("data-key")));
+        });
+        sparks.forEach(function (s) { if (s.el) C.sparkline(s.el, s.spark, { stroke: s.color, width: 96, height: 28 }); });
+      })();
+
+      /* ─────────────── 8. ASSET LIBRARY (video/static × status) ─────────────── */
+      (function renderAssets() {
+        var host = $('[data-cc="assets"]');
+        if (!host) return;
+        var a = A.assets;
+        var subEl = $('[data-cc="assets-sub"]');
+        if (subEl) subEl.textContent = F.count(a.total) + " creative assets · live / paused / in review / need-refresh";
+        var sColor = {
+          live: L.toneColors.positive.dot, paused: L.toneColors.neutral.dot,
+          inReview: L.toneColors.warning.dot, needRefresh: L.toneColors.negative.dot,
+        };
+        function seg(typeObj, total) {
+          return a.statuses.map(function (s) {
+            var n = typeObj[s], w = (n / total) * 100;
+            return '<span class="asset-seg" style="width:' + w + '%;background:' + sColor[s] + '" title="' + esc(a.statusLabels[s] + ": " + n) + '"></span>';
+          }).join("");
+        }
+        var vIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M10 9l5 3-5 3z" fill="currentColor" stroke="none"/></svg>';
+        var sIco = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.5" fill="currentColor" stroke="none"/><path d="M5 17l4-4 3 2 3-3 4 4"/></svg>';
+        host.innerHTML =
+          '<div class="asset-top">' +
+            '<div class="asset-total"><span class="asset-total-num">' + F.count(a.total) + '</span><span class="asset-total-lbl">creative assets</span></div>' +
+            '<div class="asset-split"><span><b>' + a.byType.video.total + '</b> video</span><span><b>' + a.byType.static.total + '</b> static</span></div>' +
+          '</div>' +
+          '<div class="asset-rows">' +
+            '<div class="asset-row"><span class="asset-row-lbl">' + vIco + 'Video</span><span class="asset-bar">' + seg(a.byType.video, a.byType.video.total) + '</span><span class="asset-row-n">' + a.byType.video.total + '</span></div>' +
+            '<div class="asset-row"><span class="asset-row-lbl">' + sIco + 'Static</span><span class="asset-bar">' + seg(a.byType.static, a.byType.static.total) + '</span><span class="asset-row-n">' + a.byType.static.total + '</span></div>' +
+          '</div>' +
+          '<div class="asset-legend">' +
+            a.statuses.map(function (s) {
+              var n = a.byStatus[s];
+              var inner = '<span class="asset-leg-dot" style="background:' + sColor[s] + '"></span>' + esc(a.statusLabels[s]) + ' <b>' + n + '</b>';
+              return s === "needRefresh"
+                ? '<a class="asset-leg is-link" href="#creative-intelligence::ad-fatigue" aria-label="See the refresh queue on Creative Intelligence">' + inner + ' ›</a>'
+                : '<span class="asset-leg">' + inner + '</span>';
+            }).join("") +
+          '</div>';
+      })();
+
+      /* ─────────────── 9. PURCHASES (new vs existing customers) ─────────────── */
+      (function renderPurchases() {
+        var host = $('[data-cc="purchases"]');
+        if (!host) return;
+        var p = A.purchases;
+        var subEl = $('[data-cc="purch-sub"]');
+        if (subEl) subEl.textContent = F.count(p.totalPurchasers) + " purchasers · " + L.period.current;
+        function deltaChip(pct) {
+          var tone = F.deltaTone(pct, "up");
+          var dir = pct > 0 ? "up" : pct < 0 ? "down" : "neutral";
+          return '<span class="delta-chip ' + dir + ' tone-' + tone + '" style="padding:1px 5px"><span class="arrow"></span>' + esc(F.signedPct(pct).replace(/^[+−-]?/, "")) + '</span>';
+        }
+        host.innerHTML =
+          '<div class="purch-top">' +
+            '<div class="purch-stat"><span class="purch-dot new"></span><div><div class="purch-num">' + F.count(p.newCustomers) + '</div><div class="purch-lbl">New customers ' + deltaChip(p.newDeltaPct) + '</div></div></div>' +
+            '<div class="purch-stat"><span class="purch-dot existing"></span><div><div class="purch-num">' + F.count(p.existingCustomers) + '</div><div class="purch-lbl">Existing · returning ' + deltaChip(p.existingDeltaPct) + '</div></div></div>' +
+          '</div>' +
+          '<div class="purch-bar-wrap">' +
+            '<div class="purch-bar-head"><span>Customers</span><span><b>' + F.count(p.totalPurchasers) + '</b> total</span></div>' +
+            '<div class="purch-bar"><span class="purch-seg new" style="width:' + p.newShareCust + '%">' + p.newShareCust + '%</span><span class="purch-seg existing" style="width:' + p.existingShareCust + '%">' + p.existingShareCust + '%</span></div>' +
+          '</div>' +
+          '<div class="purch-bar-wrap">' +
+            '<div class="purch-bar-head"><span>Revenue contribution</span><span><b>' + F.usdKM(p.newRevenue_k + p.existingRevenue_k) + '</b></span></div>' +
+            '<div class="purch-bar"><span class="purch-seg new" style="width:' + p.newShareRev + '%">' + p.newShareRev + '%</span><span class="purch-seg existing" style="width:' + p.existingShareRev + '%">' + p.existingShareRev + '%</span></div>' +
+          '</div>' +
+          '<div class="purch-note">Existing customers drive <b>' + p.existingShareRev + '%</b> of revenue; new acquisition adds <b>' + p.newShareRev + '%</b> at a ' + p.repeatRatePct + '% repeat rate.</div>';
+      })();
     });
   })();
   
@@ -1183,6 +1306,150 @@ try{
         var r = elm.getBoundingClientRect();
         if (r.top < (window.innerHeight || 800) && r.bottom > 0 && !done) { done = true; fn(); io.disconnect(); }
       }
+
+      /* ========================================================================
+       * JUNE-2026 ADDITIONS — Creative Performance · Angle Intelligence · Ad Fatigue
+       * All numbers from ATLAS; revenue per creative = spendUsd × roas (computed).
+       * ===================================================================== */
+      var escH = function (s) { return String(s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+      var alphaBg = function (c) { return "color-mix(in srgb, " + c + " 14%, transparent)"; };
+
+      // platform-hued poster thumbnail — inline SVG, NO real image (honest prototype)
+      function posterSVG(c, kind) {
+        var p = platformOf(c.platform);
+        var col = p.color || "#71717A";
+        var glyph = kind === "static"
+          ? '<g transform="translate(32,23)" fill="#fff" opacity="0.92"><circle cx="-8" cy="-3" r="2.4"/><path d="M-15 7l6-6 4 3 5-5 8 8z"/></g>'
+          : '<g transform="translate(32,22)"><circle r="10" fill="#fff" opacity="0.92"/><path d="M-3 -5 L6 0 L-3 5 Z" fill="' + col + '"/></g>';
+        return '<svg viewBox="0 0 64 44" preserveAspectRatio="none">' +
+          '<defs><linearGradient id="pg-' + c.id + '" x1="0" y1="0" x2="1" y2="1">' +
+            '<stop offset="0" stop-color="' + col + '" stop-opacity="0.9"/>' +
+            '<stop offset="1" stop-color="' + col + '" stop-opacity="0.5"/></linearGradient></defs>' +
+          '<rect width="64" height="44" fill="url(#pg-' + c.id + ')"/>' + glyph + '</svg>';
+      }
+
+      /* ---------- Creative Performance — revenue/ROAS ranking + thumbnail + caption ---------- */
+      (function renderCreativePerformance() {
+        var host = byCi("cperf");
+        if (!host) return;
+        var meta = A.creativeMeta || {};
+        function revenueOf(c) { return (c.spendUsd || 0) * (c.roas || 0); }
+        function verdict(c) {
+          if (c.wonOn === "bad" || c.roas < 2.0) return { cls: "negative", label: "Cut · not resonating" };
+          if (c.wonOn === "budget") return { cls: "warning", label: "Review · funded, not earned" };
+          if (c.roas >= 3.0) return { cls: "positive", label: "Resonating · scale" };
+          return { cls: "neutral", label: "Hold" };
+        }
+        function rowHTML(c, i, sortKey) {
+          var m = meta[c.id] || {};
+          var p = platformOf(c.platform);
+          var v = verdict(c);
+          var revStr = fmt.usdK(Math.round(revenueOf(c) / 1000));
+          var revPrimary = sortKey === "revenue";
+          return '<div class="cperf-row">' +
+            '<span class="cperf-rank">' + (i + 1) + '</span>' +
+            '<span class="cperf-thumb">' + posterSVG(c, m.kind) + '</span>' +
+            '<span class="cperf-info">' +
+              '<span class="cperf-name">' + escH(c.name) +
+                '<span class="cperf-plat" style="background:' + alphaBg(p.color) + ';color:' + p.color + '">' + escH(p.display) + '</span></span>' +
+              '<span class="cperf-cap">' + escH(m.caption || "") + '</span>' +
+            '</span>' +
+            '<span class="cperf-metric" style="' + (revPrimary ? '' : 'opacity:0.7') + '"><div class="m-val">' + revStr + '</div><div class="m-lbl">' + escH(L.metrics.revenue.label) + '</div></span>' +
+            '<span class="cperf-metric" style="' + (revPrimary ? 'opacity:0.7' : '') + '"><div class="m-val">' + fmt.x(c.roas) + '</div><div class="m-lbl">' + escH(L.metrics.roas.label) + '</div></span>' +
+            '<span class="cperf-verdict"><span class="status-pill ' + v.cls + '" style="padding:3px 9px"><span class="dot"></span>' + escH(v.label) + '</span></span>' +
+          '</div>';
+        }
+        function render(sortKey) {
+          var arr = A.creatives.slice().sort(function (a, b) {
+            return sortKey === "roas" ? (b.roas - a.roas) || (revenueOf(b) - revenueOf(a))
+              : (revenueOf(b) - revenueOf(a)) || (b.roas - a.roas);
+          });
+          host.innerHTML = arr.map(function (c, i) { return rowHTML(c, i, sortKey); }).join("");
+        }
+        render("revenue");
+        var tabs = $$('[data-ci="cperf-sort"]');
+        var tabBar = tabs.length ? tabs[0].closest(".tab-bar") : null;
+        var glider = tabBar ? tabBar.querySelector(".tab-glider") : null;
+        function posGlider(active) { if (glider && active) { glider.style.width = active.offsetWidth + "px"; glider.style.transform = "translateX(" + active.offsetLeft + "px)"; } }
+        tabs.forEach(function (t) {
+          t.addEventListener("click", function () {
+            tabs.forEach(function (x) { x.classList.remove("is-active"); x.setAttribute("aria-selected", "false"); });
+            t.classList.add("is-active");
+            t.setAttribute("aria-selected", "true");
+            posGlider(t);
+            render(t.getAttribute("data-sort"));
+          });
+        });
+        requestAnimationFrame(function () { posGlider(tabBar ? tabBar.querySelector(".tab.is-active") : null); });
+      })();
+
+      /* ---------- Angle & Messaging Intelligence — winning pattern (derived from genome) ---------- */
+      (function renderAngleIntel() {
+        var ai = A.angleIntel;
+        if (!ai) return;
+        var subEl = byCi("angle-sub"); if (subEl) subEl.textContent = ai.scanNote;
+        var spark = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.4L12 15l-1.9-4.6L5.5 9l4.6-1.4z"/></svg>';
+        var heroEl = byCi("angle-hero");
+        if (heroEl) heroEl.innerHTML =
+          '<span class="ah-glyph">' + spark + '</span>' +
+          '<div><div class="ah-pattern">' + escH(ai.winningPattern) + '</div>' +
+          '<div class="ah-summary">' + escH(ai.summary) + '</div></div>';
+        var sigEl = byCi("angle-signals");
+        if (sigEl) sigEl.innerHTML = ai.signals.map(function (s) {
+          return '<div class="angle-sig"><div class="as-dim">' + escH(s.dim) + '</div>' +
+            '<div class="as-row"><span class="as-tag win">Wins</span><span class="as-name">' + escH(s.winner) + '</span><span class="as-cac">' + fmt.usd(s.winnerCac) + '</span></div>' +
+            '<div class="as-row"><span class="as-tag lose">Loses</span><span class="as-name">' + escH(s.loser) + '</span><span class="as-cac">' + fmt.usd(s.loserCac) + '</span></div>' +
+          '</div>';
+        }).join("");
+        // derive the lowest-CAC trait per genome type — proves the pattern from the data
+        var types = [["hook", "Hook"], ["format", "Format"], ["angle", "Angle"], ["talent", "Talent"], ["language", "Language"]];
+        var chips = types.map(function (ty) {
+          var pool = A.genome.filter(function (g) { return g.type === ty[0]; });
+          if (!pool.length) return "";
+          var best = pool.reduce(function (a, b) { return b.paidCac < a.paidCac ? b : a; });
+          return '<span class="ap-chip"><span class="ap-type">' + ty[1] + '</span> <b>' + escH(best.trait) + '</b> <span class="as-cac" style="font-size:11px;color:var(--ink-500)">' + fmt.usd(best.paidCac) + '</span></span>';
+        }).join("");
+        var patEl = byCi("angle-pattern");
+        if (patEl) patEl.innerHTML = '<span class="ap-lbl">Lowest-CAC trait per dimension (from the Genome):</span>' + chips;
+      })();
+
+      /* ---------- Ad Fatigue — decayed winners, refresh due ---------- */
+      (function renderFatigue() {
+        var host = byCi("fatigue");
+        if (!host || !A.fatigue) return;
+        var items = A.fatigue.items, band = A.fatigue.band, freqMax = 5;
+        var refreshN = items.filter(function (f) { return f.status === "refresh"; }).length;
+        var subEl = byCi("fatigue-sub");
+        if (subEl) subEl.textContent = refreshN + " ad" + (refreshN === 1 ? "" : "s") + " past the " + band.toFixed(1) + " frequency band — refresh due";
+        var sMeta = { refresh: { cls: "negative", label: "Refresh due" }, watch: { cls: "warning", label: "Watch" }, healthy: { cls: "positive", label: "Healthy" } };
+        var sparkTargets = [];
+        host.innerHTML = items.map(function (f, i) {
+          var p = platformOf(f.platform);
+          var sm = sMeta[f.status] || sMeta.watch;
+          var fillCol = f.frequency >= band ? "var(--negative-dot)" : (f.frequency >= band * 0.85 ? "var(--warning-dot)" : "var(--positive-dot)");
+          var fillW = Math.min(100, (f.frequency / freqMax) * 100);
+          var bandLeft = (band / freqMax) * 100;
+          var sparkCol = f.status === "refresh" ? "#F43F5E" : (f.status === "watch" ? "#F59E0B" : "#10B981");
+          sparkTargets.push({ idx: i, spark: f.cacHistory, color: sparkCol });
+          return '<div class="fatigue-card is-' + f.status + '">' +
+            '<div class="fat-head"><div><div class="fat-name">' + escH(f.name) + '</div>' +
+              '<div class="fat-meta">' + escH(p.display) + ' · ' + escH(f.market) + ' · ' + f.daysLive + ' days live</div></div>' +
+              '<span class="status-pill ' + sm.cls + '" style="padding:3px 8px"><span class="dot"></span>' + escH(sm.label) + '</span></div>' +
+            '<div class="fat-stats">' +
+              '<div class="fat-stat"><div class="fs-val">' + fmt.x(f.peakRoas) + ' <span style="color:var(--ink-300)">→</span> <span class="fs-decay">' + fmt.x(f.currentRoas) + '</span></div><div class="fs-lbl">ROAS peak → now</div></div>' +
+              '<div class="fat-stat"><div class="fs-val">' + f.cacHistory[0] + ' <span style="color:var(--ink-300)">→</span> <span class="fs-decay">$' + f.cacHistory[f.cacHistory.length - 1] + '</span></div><div class="fs-lbl">Paid CAC trend</div></div>' +
+            '</div>' +
+            '<div class="fat-freq"><div class="fat-freq-head"><span>' + escH(L.metrics.frequency.label) + ' <b>' + f.frequency.toFixed(1) + '</b></span><span>band ' + band.toFixed(1) + '</span></div>' +
+              '<div class="fat-freq-track"><div class="fat-freq-fill" style="width:' + fillW + '%;background:' + fillCol + '"></div><div class="fat-freq-band" style="left:' + bandLeft + '%"></div></div></div>' +
+            '<div class="fat-spark" data-fat-spark="' + i + '"></div>' +
+            '<div class="fat-note">' + escH(f.note) + '</div>' +
+          '</div>';
+        }).join("");
+        sparkTargets.forEach(function (s) {
+          var elx = host.querySelector('[data-fat-spark="' + s.idx + '"]');
+          if (elx && C && C.sparkline) C.sparkline(elx, s.spark, { stroke: s.color, width: 460, height: 30 });
+        });
+      })();
     });
   })();
   
@@ -2138,10 +2405,221 @@ try{
             ' CAC — roughly <strong class="ink-700">+' + fmt.count(custsGained) + '</strong> customers, no new money.';
         }
       }
+
+      /* ── SCALING HEALTH — ramp vs +20%/2–3d baseline; aggressive + underfunded ── */
+      (function renderScalingHealth() {
+        var esc = function (s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); };
+        var sc = A.scaling;
+        if (!sc) return;
+        var subEl = $('[data-se="scaling-sub"]');
+        if (subEl) subEl.textContent = "Healthy ramp ≈ +" + sc.baselinePct + "% " + sc.baselineWindow + " · flag too-fast scaling and starved winners";
+
+        var counts = { aggressive: 0, underfunded: 0, healthy: 0 };
+        sc.items.forEach(function (it) { counts[it.status] = (counts[it.status] || 0) + 1; });
+        var countsEl = $('[data-se="scaling-counts"]');
+        if (countsEl) countsEl.innerHTML =
+          '<span class="status-pill negative" style="padding:2px 8px"><span class="dot"></span>' + counts.aggressive + ' too fast</span>' +
+          '<span class="status-pill warning" style="padding:2px 8px"><span class="dot"></span>' + counts.underfunded + ' underfunded</span>' +
+          '<span class="status-pill positive" style="padding:2px 8px"><span class="dot"></span>' + counts.healthy + ' healthy</span>';
+
+        var f = sc.featured;
+        var headEl = $('[data-se="scaling-featured-head"]');
+        if (headEl) headEl.innerHTML = '<b>' + esc(f.name) + '</b> — actual daily-spend ramp vs a healthy +' + sc.baselinePct + '% step. A merit-94 winner is being starved: the dashed baseline pulls away.';
+        var chartEl = $('[data-se="scaling-chart"]');
+        if (chartEl && C && C.lineChart) {
+          C.lineChart(chartEl, {
+            xLabels: f.days,
+            series: [
+              { name: "Healthy ramp (+" + sc.baselinePct + "%)", values: f.baseline, color: "#A1A1AA", dashed: true },
+              { name: f.name + " · actual", values: f.actual, color: "#0EA5E9" },
+            ],
+          }, {
+            area: true,
+            formatValue: function (v) { return "$" + Math.round(v).toLocaleString("en-US"); },
+            formatYTick: function (v) { return "$" + Math.round(v / 1000) + "k"; },
+            ariaLabel: "Daily spend ramp vs healthy +" + sc.baselinePct + "% baseline",
+          });
+        }
+        var legEl = $('[data-se="scaling-legend"]');
+        if (legEl) legEl.innerHTML =
+          '<span class="sf-leg" style="color:#0EA5E9"><span class="sf-line"></span><span style="color:var(--ink-600)">Actual ramp (~+5% / 3d)</span></span>' +
+          '<span class="sf-leg" style="color:#A1A1AA"><span class="sf-line dashed"></span><span style="color:var(--ink-600)">Healthy baseline (+' + sc.baselinePct + '% / 2–3d)</span></span>';
+
+        var sMeta = {
+          aggressive: { cls: "negative", label: "Too fast", key: "is-aggressive" },
+          underfunded: { cls: "warning", label: "Underfunded", key: "is-underfunded" },
+          healthy: { cls: "positive", label: "Healthy", key: "is-healthy" },
+        };
+        var listEl = $('[data-se="scaling-list"]');
+        var scaleMax = 60; // % axis for the step bar
+        if (listEl) listEl.innerHTML = sc.items.map(function (it) {
+          var sm = sMeta[it.status] || sMeta.healthy;
+          var mkt = L.entities.markets[it.market] || { display: it.market, color: "#71717A" };
+          var fillW = Math.max(4, Math.min(100, (it.stepPct / scaleMax) * 100));
+          var baseLeft = (sc.baselinePct / scaleMax) * 100;
+          var fillCol = it.status === "aggressive" ? "var(--negative-dot)" : it.status === "underfunded" ? "var(--warning-dot)" : "var(--positive-dot)";
+          return '<div class="scaling-item ' + sm.key + '">' +
+            '<div class="sr-top"><span class="sr-name">' + esc(it.name) + ' <span class="sr-mkt" style="color:' + mkt.color + '">· ' + esc(mkt.display) + '</span></span>' +
+              '<span class="status-pill ' + sm.cls + '" style="padding:2px 8px"><span class="dot"></span>' + sm.label + '</span></div>' +
+            '<div class="sr-bar"><div class="sr-bar-track"><div class="sr-bar-fill" style="width:' + fillW + '%;background:' + fillCol + '"></div><div class="sr-bar-base" style="left:' + baseLeft + '%"></div></div>' +
+              '<span class="sr-step">+' + it.stepPct + '% step</span></div>' +
+            '<div class="sr-note">' + esc(it.note) + '</div>' +
+          '</div>';
+        }).join("");
+      })();
     });
   })();
 
 }catch(e){console.error('[spend-efficiency]',e);}
+
+/* compare */
+try{
+
+  (function () {
+    "use strict";
+    var A = window.ATLAS;
+    if (!A || !A.registerScreen) return;
+
+    A.registerScreen("compare", function initCompare(root) {
+      var F = A.fmt, L = A.labels, C = window.ATLASCharts, M = window.ATLASMotion;
+      var $ = function (s) { return root.querySelector(s); };
+      var $$ = function (s) { return Array.prototype.slice.call(root.querySelectorAll(s)); };
+      var esc = function (s) { return String(s).replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); };
+
+      function pctDelta(cur, prior) { return prior ? ((cur - prior) / prior) * 100 : null; }
+
+      // build a tone-aware chip from a KNOWN delta value (kind ∈ "pct"|"abs"; goodDir ∈ "up"|"down")
+      function chipFromDelta(delta, kind, goodDir, small) {
+        if (delta == null) return "";
+        var dir = delta > 0 ? "up" : delta < 0 ? "down" : "neutral";
+        var tone = F.deltaTone(delta, goodDir);
+        var str = kind === "abs" ? F.signedAbs(delta) : F.signedPct(delta);
+        return '<span class="delta-chip ' + dir + ' tone-' + tone + '" style="padding:' + (small ? "1px 5px" : "2px 6px") + '"><span class="arrow"></span>' + esc(str.replace(/^[+−-]?/, "")) + "</span>";
+      }
+      // a tone-aware delta chip COMPUTED vs a prior value (for per-dimension rows that have no canonical delta)
+      function deltaChip(cur, prior, kind, goodDir, small) {
+        if (cur == null || prior == null) return "";
+        return chipFromDelta(kind === "abs" ? +(cur - prior).toFixed(1) : pctDelta(cur, prior), kind, goodDir, small);
+      }
+      // cold-start markets ramp from a tiny base → a % delta overstates; show a "seeding" tag instead (LOCKED §2.9)
+      function seedingTag() { return '<span class="status-pill neutral" style="padding:1px 6px"><span class="dot"></span>seeding</span>'; }
+
+      var kpiByKey = {}; A.kpis.forEach(function (k) { kpiByKey[k.key] = k; });
+      var perfByKey = {}; A.perfSummary.forEach(function (t) { perfByKey[t.key] = t; });
+      var prior = A.prior;
+
+      /* ─────────── 2. PERIOD COMPARISON STRIP ─────────── */
+      (function renderPeriod() {
+        var host = $('[data-cmp="period"]');
+        if (!host) return;
+        // delta = the CANONICAL move from data.js (kpis/perfSummary) so this strip ties out
+        // byte-for-byte with the insight banners on every other screen (prior values are a
+        // rounded May reference; the canonical delta is authoritative — not recomputed here).
+        var tiles = [
+          { key: "pmSpend",  cur: kpiByKey.pmSpend.value,  prior: prior.pmSpend_k, delta: perfByKey.pmSpend.delta,  disp: function (v) { return F.usdK(v); },  kind: "pct", goodDir: "up" },
+          { key: "revenue",  cur: perfByKey.revenue.value, prior: prior.revenue_k, delta: perfByKey.revenue.delta,  disp: function (v) { return F.usdKM(v); }, kind: "pct", goodDir: "up" },
+          { key: "roas",     cur: kpiByKey.roas.value,     prior: prior.roas,      delta: perfByKey.roas.delta,     disp: function (v) { return F.x(v); },     kind: "abs", goodDir: "up" },
+          { key: "paidCac",  cur: kpiByKey.paidCac.value,  prior: prior.paidCac,   delta: perfByKey.paidCac.delta,  disp: function (v) { return F.usd(v); },   kind: "pct", goodDir: "down" },
+          { key: "newCusts", cur: kpiByKey.newCusts.value, prior: prior.newCusts,  delta: kpiByKey.newCusts.delta,  disp: function (v) { return F.count(v); }, kind: "pct", goodDir: "up" },
+        ];
+        host.innerHTML = tiles.map(function (t) {
+          var m = L.metrics[t.key] || {};
+          return '<div class="cmp-ptile">' +
+            '<div class="kpi-label-row"><span class="kpi-stripe"></span><span class="kpi-label">' + esc(m.label || t.key) + '</span></div>' +
+            '<div class="cmp-pvalrow"><span class="cmp-pnum">' + esc(t.disp(t.cur)) + '</span>' + chipFromDelta(t.delta, t.kind, t.goodDir, true) + '</div>' +
+            '<div class="cmp-pprior">May: <b>' + esc(t.disp(t.prior)) + '</b></div>' +
+          '</div>';
+        }).join("");
+      })();
+
+      /* ─────────── 3. INSIGHT BANNER ─────────── */
+      (function renderInsight() {
+        var bestCh = A.compare.channels.slice().sort(function (a, b) { return b.roas - a.roas; })[0];
+        var worstMkt = A.compare.marketingPlatforms.filter(function (m) { return m.roas != null; }).sort(function (a, b) { return a.roas - b.roas; })[0];
+        var rev = perfByKey.revenue, cac = perfByKey.paidCac;
+        var el = $('[data-cmp="insight"]');
+        if (el) el.innerHTML =
+          "<strong>June</strong> beat <strong>May</strong> on the headline — " + esc(L.metrics.revenue.label) + " <strong>" + F.signedPct(rev.delta) +
+          "</strong>, " + esc(L.metrics.paidCac.label) + " <strong>" + F.signedPct(cac.delta) + "</strong>. <strong>" + esc(bestCh.name) +
+          "</strong> is the most efficient channel at <strong>" + F.x(bestCh.roas) + "</strong> " + esc(L.metrics.roas.label) +
+          "; <strong>" + esc(worstMkt.code) + "</strong> still drags at <strong>" + F.x(worstMkt.roas) + "</strong>.";
+      })();
+
+      /* ─────────── 4. CROSS-DIMENSION COMPARISON TABLE ─────────── */
+      (function renderTable() {
+        var thead = $('[data-cmp="thead"]'), tbody = $('[data-cmp="tbody"]');
+        var subEl = $('[data-cmp="table-sub"]'), footEl = $('[data-cmp="table-foot"]');
+        var dims = A.compare.dimensions;
+        function revOf(r) { return r.roas != null ? r.spend_k * r.roas : null; }
+        function priorRevOf(r) { return r.priorRoas != null ? r.priorSpend_k * r.priorRoas : null; }
+        function valCell(valHTML, chipHTML) {
+          return '<td class="num"><div class="cmp-cellval">' + valHTML + "</div>" + (chipHTML ? '<div class="cmp-celld">' + chipHTML + "</div>" : "") + "</td>";
+        }
+        function build(dimKey) {
+          var dim = dims.filter(function (d) { return d.key === dimKey; })[0];
+          var rows = A.compare[dim.rowsKey];
+          if (subEl) subEl.textContent = rows.length + " " + dim.label.toLowerCase() + (rows.length === 1 ? "" : "s") + " · " + dim.sub + " · current vs May, % change";
+          thead.innerHTML = "<tr><th>" + esc(dim.label) + '</th><th class="num">' + esc(L.metrics.pmSpend.label) +
+            '</th><th class="num">' + esc(L.metrics.revenue.label) + '</th><th class="num">' + esc(L.metrics.roas.label) +
+            '</th><th class="num">' + esc(L.metrics.paidCac.label) + "</th></tr>";
+          tbody.innerHTML = rows.map(function (r) {
+            var rev = revOf(r), prev = priorRevOf(r);
+            var nameCell = '<td><span class="cmp-swatch' + (r.coldStart ? " dashed" : "") + '" style="background:' + r.color + ';color:' + r.color + '"></span>' +
+              esc(r.name) + (r.note ? ' <span class="ink-400" style="font-weight:400;font-size:11px">· ' + esc(r.note) + "</span>" : "") + "</td>";
+            return "<tr>" + nameCell +
+              valCell(F.usdK(r.spend_k), r.coldStart ? seedingTag() : deltaChip(r.spend_k, r.priorSpend_k, "pct", "up", true)) +
+              valCell(rev != null ? F.usdK(Math.round(rev)) : F.none(), rev != null && prev != null ? deltaChip(rev, prev, "pct", "up", true) : "") +
+              valCell(r.roas != null ? F.x(r.roas) : F.none(), r.roas != null && r.priorRoas != null ? deltaChip(r.roas, r.priorRoas, "abs", "up", true) : "") +
+              valCell(F.usd(r.paidCac), r.priorPaidCac != null ? deltaChip(r.paidCac, r.priorPaidCac, "pct", "down", true) : "") +
+              "</tr>";
+          }).join("");
+          if (footEl) footEl.textContent = "Revenue = Spend × ROAS · Δ vs May 2026 · " + (dim.key === "source" ? "App ≈ 89% of revenue at ~10× web order value." : "all figures tie out to the other screens.");
+        }
+        var tabs = $$("[data-cmp-dim]");
+        var tabBar = tabs.length ? tabs[0].closest(".tab-bar") : null;
+        var glider = tabBar ? tabBar.querySelector(".tab-glider") : null;
+        function posGlider(active) { if (glider && active) { glider.style.width = active.offsetWidth + "px"; glider.style.transform = "translateX(" + active.offsetLeft + "px)"; } }
+        tabs.forEach(function (t) {
+          t.addEventListener("click", function () {
+            tabs.forEach(function (x) { x.classList.remove("is-active"); x.setAttribute("aria-selected", "false"); });
+            t.classList.add("is-active");
+            t.setAttribute("aria-selected", "true");
+            posGlider(t);
+            build(t.getAttribute("data-cmp-dim"));
+          });
+        });
+        build("channel");
+        requestAnimationFrame(function () { posGlider(tabBar ? tabBar.querySelector(".tab.is-active") : null); });
+      })();
+
+      /* ─────────── 5. ALL MARKETING PLATFORMS — SIDE BY SIDE ─────────── */
+      (function renderBreakdowns() {
+        var host = $('[data-cmp="breakdowns"]');
+        if (!host) return;
+        host.innerHTML = A.compare.marketingPlatforms.map(function (r) {
+          var rev = r.roas != null ? r.spend_k * r.roas : null;
+          var prev = r.priorRoas != null ? r.priorSpend_k * r.priorRoas : null;
+          function row(k, valHTML, chip) {
+            return '<div class="cmp-mp-row"><span class="cmp-mp-k">' + esc(k) + '</span><span class="cmp-mp-v"><span class="v">' + valHTML + "</span>" + (chip || "") + "</span></div>";
+          }
+          var custStr = r.coldStart ? F.countApprox(r.newCusts) : F.count(r.newCusts);
+          return '<div class="cmp-mp-card' + (r.coldStart ? " is-seed" : "") + '">' +
+            '<div class="cmp-mp-head"><span class="cmp-mp-dot' + (r.coldStart ? " dashed" : "") + '" style="background:' + r.color + ';color:' + r.color + '"></span>' +
+              '<span class="cmp-mp-name">' + esc(r.name) + "</span>" +
+              (r.note ? '<span class="cmp-mp-note">' + esc(r.note) + "</span>" : (r.coldStart ? '<span class="cmp-mp-note">seeding</span>' : "")) + "</div>" +
+            '<div class="cmp-mp-rows">' +
+              row(L.metrics.pmSpend.label, F.usdK(r.spend_k), r.coldStart ? seedingTag() : deltaChip(r.spend_k, r.priorSpend_k, "pct", "up", true)) +
+              row(L.metrics.revenue.label, rev != null ? F.usdK(Math.round(rev)) : F.none(), rev != null && prev != null ? deltaChip(rev, prev, "pct", "up", true) : "") +
+              row(L.metrics.roas.label, r.roas != null ? F.x(r.roas) : F.none(), r.roas != null && r.priorRoas != null ? deltaChip(r.roas, r.priorRoas, "abs", "up", true) : "") +
+              row(L.metrics.paidCac.label, F.usd(r.paidCac), r.priorPaidCac != null ? deltaChip(r.paidCac, r.priorPaidCac, "pct", "down", true) : "") +
+              row(L.metrics.newCusts.label, custStr, "") +
+            "</div></div>";
+        }).join("");
+      })();
+    });
+  })();
+  
+}catch(e){console.error('[compare]',e);}
 
 /* daily-pulse */
 try{

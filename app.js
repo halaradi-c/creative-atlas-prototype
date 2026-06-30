@@ -36,6 +36,7 @@
     "creative-intelligence",
     "cohort-economics",
     "spend-efficiency",
+    "compare",
     "daily-pulse",
     "ask-calo",
     "frontier",
@@ -48,6 +49,7 @@
     "creative-intelligence": { leaf: "Creative Intelligence", group: "Intelligence", accent: "--c-violet",  icon: "ic-sparkles" },
     "cohort-economics":      { leaf: "Cohort Economics",      group: "Intelligence", accent: "--c-emerald", icon: "ic-layers" },
     "spend-efficiency":      { leaf: "Spend Efficiency",      group: "Intelligence", accent: "--c-sky",     icon: "ic-target" },
+    "compare":               { leaf: "Compare",               group: "Intelligence", accent: "--c-cyan",    icon: "ic-compare" },
     "daily-pulse":           { leaf: "Daily Pulse",           group: "Operate",      accent: "--c-teal",    icon: "ic-activity" },
     "ask-calo":              { leaf: "Ask Calo",              group: "Operate",      accent: "--c-indigo",  icon: "ic-message" },
     "frontier":              { leaf: "The Frontier",          group: "Vision",       accent: "--c-fuchsia", icon: "ic-compass" },
@@ -190,6 +192,8 @@
     try {
       target.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
     } catch (e) { target.scrollIntoView(); }
+    // pulse ring is motion-only — skip the class churn + timer entirely under reduced-motion
+    if (reduced) return;
     target.classList.remove("is-pulse");
     void target.offsetWidth;
     target.classList.add("is-pulse");
@@ -350,6 +354,100 @@
         var c = item.querySelector(".check"); if (c) c.style.visibility = on ? "hidden" : "visible";
       }
       syncLabelAndAll();
+    });
+  }
+
+  // Channel filter (ad-network multi-select-feel; visual-only — no refilter, like region)
+  function initChannelDropdown() {
+    var btn = els.channelBtn, menu = els.channelMenu;
+    if (!btn || !menu) return;
+    var labelEl = btn.querySelector(".ctl-label");
+    var plats = (ATLAS.labels && ATLAS.labels.entities && ATLAS.labels.entities.platforms) || {};
+    var codes = ["meta", "tiktok", "google", "arabyads", "snapchat"];
+    var liveSet = {};
+    (ATLAS.platforms || []).forEach(function (p) { if (p.live) liveSet[p.code] = 1; });
+    function colorFor(code) { var p = plats[code]; return (p && p.color) || "#71717A"; }
+    function nameFor(code) { var p = plats[code]; return (p && p.display) || code; }
+    menu.innerHTML =
+      '<button class="menu-item" role="menuitemcheckbox" aria-checked="true" data-all="1">' +
+        '<span>All channels</span>' +
+        '<svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+      "</button>" +
+      '<div class="menu-caption" style="padding-top:6px">Ad networks</div>' +
+      codes.map(function (code) {
+        return '<button class="menu-item" role="menuitemcheckbox" aria-checked="true" data-code="' + code + '">' +
+          '<span class="menu-dot" style="background:' + colorFor(code) + '"></span>' +
+          '<span>' + escHtml(nameFor(code)) + (liveSet[code] ? ' <span class="seeding-badge" style="padding:0 6px;border-style:solid;border-color:var(--positive-dot);color:var(--positive-text);background:var(--positive-bg)">live</span>' : "") + "</span>" +
+          '<svg class="check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>' +
+          "</button>";
+      }).join("");
+
+    function selected() {
+      return $all('.menu-item[data-code]', menu)
+        .filter(function (it) { return it.getAttribute("aria-checked") === "true"; })
+        .map(function (it) { return it.getAttribute("data-code"); });
+    }
+    function syncLabelAndAll() {
+      var sel = selected();
+      var allItem = menu.querySelector('.menu-item[data-all]');
+      var allChecked = sel.length === codes.length;
+      if (allItem) {
+        allItem.setAttribute("aria-checked", allChecked ? "true" : "false");
+        var ac = allItem.querySelector(".check"); if (ac) ac.style.visibility = allChecked ? "visible" : "hidden";
+      }
+      var label = (sel.length === 0 || allChecked) ? "All channels"
+        : sel.length === 1 ? nameFor(sel[0])
+        : sel.length + " channels";
+      if (labelEl) flashLabel(labelEl, label);
+    }
+    $all(".menu-item .check", menu).forEach(function (c) { c.style.visibility = "visible"; });
+
+    btn.addEventListener("click", function (e) { e.stopPropagation(); toggleMenu(menu, btn); });
+    menu.addEventListener("click", function (e) {
+      e.stopPropagation(); // multi-select: stay open on pick
+      var item = e.target.closest(".menu-item");
+      if (!item) return;
+      if (item.hasAttribute("data-all")) {
+        $all('.menu-item[data-code]', menu).forEach(function (it) {
+          it.setAttribute("aria-checked", "true");
+          var c = it.querySelector(".check"); if (c) c.style.visibility = "visible";
+        });
+      } else {
+        var on = item.getAttribute("aria-checked") === "true";
+        item.setAttribute("aria-checked", on ? "false" : "true");
+        var c = item.querySelector(".check"); if (c) c.style.visibility = on ? "hidden" : "visible";
+      }
+      syncLabelAndAll();
+    });
+  }
+
+  // Export menu — PDF = a REAL print-to-PDF (window.print, styled by @media print);
+  // PowerPoint = honest inert "Queued for review ▸" (the prototype never fakes a file).
+  function initExportMenu() {
+    var btn = els.exportBtn, menu = els.exportMenu;
+    if (!btn || !menu) return;
+    menu.innerHTML =
+      '<div class="menu-caption">Export this view</div>' +
+      '<button class="menu-item" role="menuitem" data-export="pdf">' +
+        '<span class="menu-dot" style="background:var(--negative-dot)"></span><span>PDF report</span>' +
+      "</button>" +
+      '<button class="menu-item" role="menuitem" data-export="ppt">' +
+        '<span class="menu-dot" style="background:var(--warning-dot)"></span><span>PowerPoint (.pptx)</span>' +
+      "</button>" +
+      '<div class="menu-caption" style="padding-top:6px;color:var(--ink-400)">PDF prints the current screen · PPT is preview-only</div>';
+    btn.addEventListener("click", function (e) { e.stopPropagation(); toggleMenu(menu, btn); });
+    menu.addEventListener("click", function (e) {
+      var item = e.target.closest(".menu-item[data-export]");
+      if (!item) return;
+      var kind = item.getAttribute("data-export");
+      closeAllMenus();
+      if (kind === "pdf") {
+        // real export: the browser's print → "Save as PDF" (styled via @media print)
+        setTimeout(function () { try { window.print(); } catch (e2) {} }, 80);
+      } else {
+        // honest inert — never fabricate a generated deck
+        showToast("Queued for review");
+      }
     });
   }
 
@@ -529,10 +627,9 @@
     window.addEventListener("hashchange", onHashChange);
   }
 
-  // A tiny, honest "Queued for review ▸" micro-toast — never implies money moved.
+  // A tiny, honest "<label> ▸" micro-toast — never implies money moved or a file shipped.
   var toastTimer = null;
-  function showQueuedToast(anchorEl) {
-    var label = anchorEl.getAttribute("data-inert") || "Queued for review";
+  function showToast(label) {
     var toast = els.toast;
     if (!toast) {
       toast = document.createElement("div");
@@ -540,10 +637,13 @@
       document.body.appendChild(toast);
       els.toast = toast;
     }
-    toast.textContent = label + " ▸";
+    toast.textContent = (label || "Queued for review") + " ▸";
     toast.classList.add("is-shown");
     clearTimeout(toastTimer);
     toastTimer = setTimeout(function () { toast.classList.remove("is-shown"); }, 1600);
+  }
+  function showQueuedToast(anchorEl) {
+    showToast(anchorEl.getAttribute("data-inert") || "Queued for review");
   }
 
   // ── Sidebar Daily-Pulse live count badge (LOCKED §1.2 — from data, never typed)
@@ -580,6 +680,10 @@
     els.periodMenu = $("#menu-period");
     els.regionBtn = $("#ctl-region");
     els.regionMenu = $("#menu-region");
+    els.channelBtn = $("#ctl-channel");
+    els.channelMenu = $("#menu-channel");
+    els.exportBtn = $("#ctl-export");
+    els.exportMenu = $("#menu-export");
     els.searchBtn = $("#topbar-search");
     els.cmdkScrim = $("#cmdk");
     els.cmdkInput = $("#cmdk-input");
@@ -587,6 +691,8 @@
 
     initPeriodDropdown();
     initRegionDropdown();
+    initChannelDropdown();
+    initExportMenu();
     initCmdK();
     wireGlobalEvents();
     paintPulseBadge();

@@ -49,6 +49,12 @@
       if (k == null) return EMDASH;
       return "$" + Math.round(k) + "k";
     },
+    // thousands → auto millions for big values → "$1.5M" (≥1000k), else "$578k"
+    usdKM: function (k) {
+      if (k == null) return EMDASH;
+      if (k >= 1000) return "$" + (k / 1000).toFixed(2).replace(/\.?0+$/, "") + "M";
+      return "$" + Math.round(k) + "k";
+    },
     // whole USD with comma thousands → "$156", "$27,000"
     usd: function (n) {
       if (n == null) return EMDASH;
@@ -89,6 +95,19 @@
       var d = decimals == null ? 1 : decimals;
       var sign = n > 0 ? "+" : n < 0 ? MINUS : "";
       return sign + Math.abs(n).toFixed(d);
+    },
+    // 1-decimal percent → "3.4%", "68.0%"  (CVR / CTR / abandoned-cart values)
+    pct1: function (n, decimals) {
+      if (n == null) return EMDASH;
+      var d = decimals == null ? 1 : decimals;
+      return n.toFixed(d) + "%";
+    },
+    // signed percentage-POINT delta → "+0.2pp", "−2.0pp"  (rate-metric MoM deltas)
+    signedPpt: function (n, decimals) {
+      if (n == null) return EMDASH;
+      var d = decimals == null ? 1 : decimals;
+      var sign = n > 0 ? "+" : n < 0 ? MINUS : "";
+      return sign + Math.abs(n).toFixed(d) + "pp";
     },
     // payback "5 mo"
     months: function (n) {
@@ -166,6 +185,12 @@
       frequency:    { label: "Frequency",    unit: "count",             fmt: "merit", period: "rolling",         goodDir: "down", deltaKind: "none" }, // down = good (fatigue)
       installs:     { label: "Installs",     unit: "count",             fmt: "count", period: "per period",      goodDir: "up",   deltaKind: "none" },
       roasDelta:    { label: "ROAS",         unit: "absolute ratio",    fmt: "signedAbs", period: "",            goodDir: "up",   deltaKind: "abs" },
+      // ── new performance-summary metrics (Command Center top, 2026-06-30) ──────
+      revenue:      { label: "Revenue",      unit: "USD ($) thousands", fmt: "usdK",  period: "June 2026 (MoM)", goodDir: "up",   deltaKind: "pct" }, // = spend × ROAS (computed)
+      cvr:          { label: "CVR",          unit: "%",                 fmt: "pct1",  period: "June 2026 (MoM)", goodDir: "up",   deltaKind: "ppt" }, // conversion rate (authored)
+      ctr:          { label: "CTR",          unit: "%",                 fmt: "pct1",  period: "June 2026 (MoM)", goodDir: "up",   deltaKind: "ppt" }, // click-through rate (authored)
+      abandonedCart:{ label: "Abandoned Cart", unit: "%",              fmt: "pct1",  period: "June 2026 (MoM)", goodDir: "down", deltaKind: "ppt" }, // checkout-abandon rate (authored)
+      purchases:    { label: "Purchases",    unit: "count",             fmt: "count", period: "June 2026 (MoM)", goodDir: "up",   deltaKind: "pct" }, // orders this period (authored)
     },
 
     // Banned synonyms — kept here as machine-readable data so a critic can grep
@@ -672,6 +697,182 @@
           "Guarded auto-pilot (two-key + kill-switch)",
         ] },
       },
+    },
+
+    /* ═══════════════════════════════════════════════════════════════════════
+     * 11. JUNE-2026 UPDATE BLOCKS (performance summary, assets, purchases,
+     * creative perf, fatigue, angle intelligence, scaling health, compare).
+     * Every number is either COMPUTED from an existing value (commented) or an
+     * AUTHORED mock under the global "Preview Data" badge (commented). No screen
+     * hard-types any of these — they all read from here (workspace Rule #20).
+     * ═════════════════════════════════════════════════════════════════════ */
+
+    /* ── 11.1 perfSummary — the Command-Center top "Performance Summary" tiles.
+     * 8 tiles: the money line (Spend · Revenue · ROAS · Paid CAC) + the funnel
+     * line (AOV · CVR · CTR · Abandoned Cart). Replaces the removed auto-KPI strip
+     * with a richer, purpose-built summary. deltaKind ∈ pct|abs|ppt.
+     *   revenue_k = round(pmSpend 578 × ROAS 2.6) = 1503 (COMPUTED)
+     *   aov 298   = newCusts-weighted blend of market AOVs where present:
+     *               (285·4600 + 305·2080 + 330·720 + 340·430) / 7830 = 297.5 (COMPUTED)
+     *   cvr/ctr/abandonedCart = AUTHORED preview rates. ───────────────────────── */
+    perfSummary: [
+      { key: "pmSpend",       value: 578,  delta: +9.4,  deltaKind: "pct", spark: [498, 505, 512, 520, 528, 533, 541, 548, 556, 563, 571, 578],              note: "Meta + Google live · all channels" },
+      { key: "revenue",       value: 1503, delta: +18.6, deltaKind: "pct", spark: [1240, 1255, 1272, 1290, 1310, 1335, 1360, 1390, 1420, 1455, 1480, 1503], note: "= PM Spend × ROAS · attributed" },
+      { key: "roas",          value: 2.6,  delta: +0.2,  deltaKind: "abs", spark: [2.3, 2.35, 2.4, 2.42, 2.45, 2.48, 2.5, 2.52, 2.54, 2.56, 2.58, 2.6],       note: "blended · all platforms" },
+      { key: "paidCac",       value: 156,  delta: -6.2,  deltaKind: "pct", spark: [171, 169, 168, 166, 165, 163, 162, 161, 160, 159, 157, 156],              note: "paid-only · double-count stripped" },
+      { key: "aov",           value: 298,  delta: +2.1,  deltaKind: "pct", spark: [288, 289, 290, 291, 292, 293, 294, 295, 296, 297, 297, 298],              note: "new-customer-weighted blend" },
+      { key: "cvr",           value: 3.4,  delta: +0.2,  deltaKind: "ppt", spark: [3.0, 3.05, 3.1, 3.15, 3.2, 3.25, 3.28, 3.3, 3.32, 3.35, 3.38, 3.4],       note: "visit → first order" },
+      { key: "ctr",           value: 1.8,  delta: +0.1,  deltaKind: "ppt", spark: [1.6, 1.62, 1.65, 1.67, 1.7, 1.71, 1.72, 1.74, 1.75, 1.76, 1.78, 1.8],     note: "impression → click · blended" },
+      { key: "abandonedCart", value: 68.0, delta: -2.0,  deltaKind: "ppt", spark: [73, 72.5, 72, 71.5, 71, 70.5, 70, 69.5, 69, 68.5, 68.2, 68],              note: "added → not purchased · down = good" },
+    ],
+
+    /* ── 11.2 prior — blended MAY 2026 values (the prior period the Compare screen
+     * stacks June against). Each is derived from the current value ÷ its known delta,
+     * then ROUNDED for display (pmSpend 528 ≈ 578/1.094 · paidCac 166 ≈ 156/0.938 ·
+     * newCusts 7600 ≈ 8520/1.121 · roas 2.4 = 2.6−0.2 · revenue 1267 = 528×2.4).
+     * These are a rounded reference only — the CANONICAL headline delta (kpis/perfSummary
+     * .delta: +9.4% / −6.2% / …) is authoritative, so the Compare period strip renders
+     * that canonical delta (not a recompute from the rounded prior) to tie out byte-for-byte
+     * with the insight banners on every other screen. */
+    prior: {
+      period: "May 2026",
+      pmSpend_k: 528, revenue_k: 1267, roas: 2.4, paidCac: 166, newCusts: 7600,
+      aov: 292, cvr: 3.2, ctr: 1.7, abandonedCart: 70.0, ltvCac: 3.0, purchases: 43900,
+    },
+
+    /* ── 11.3 assets — creative-asset inventory by status × type (AUTHORED).
+     * byType sums per row; byStatus = column sums; total = 142. "needRefresh"
+     * ties conceptually to ATLAS.fatigue. Status ∈ live|paused|inReview|needRefresh. */
+    assets: {
+      total: 142,
+      statuses: ["live", "paused", "inReview", "needRefresh"],
+      statusLabels: { live: "Live", paused: "Paused", inReview: "In Review", needRefresh: "Need Refresh" },
+      statusTone:   { live: "positive", paused: "neutral", inReview: "warning", needRefresh: "negative" },
+      byType: {
+        video:  { live: 38, paused: 14, inReview: 6, needRefresh: 9, total: 67 }, // 38+14+6+9 = 67
+        static: { live: 41, paused: 19, inReview: 8, needRefresh: 7, total: 75 }, // 41+19+8+7 = 75
+      },
+      byStatus: { live: 79, paused: 33, inReview: 14, needRefresh: 16 }, // column sums → Σ 142
+    },
+
+    /* ── 11.4 purchases — new vs existing (returning) customer split (AUTHORED,
+     * except newCustomers 8520 = ATLAS.kpis.newCusts and revenue split sums to
+     * perfSummary.revenue 1503). The insight: existing customers are the base,
+     * new acquisition is efficient growth. ────────────────────────────────────── */
+    purchases: {
+      newCustomers: 8520, existingCustomers: 31180, totalPurchasers: 39700,
+      newRevenue_k: 420, existingRevenue_k: 1083, // 420 + 1083 = 1503 (= revenue)
+      newShareCust: 21.5, existingShareCust: 78.5, // of 39,700 purchasers
+      newShareRev: 27.9, existingShareRev: 72.1,   // of $1,503k revenue
+      newDeltaPct: +12.1, existingDeltaPct: +5.8,  // MoM
+      priorNewCustomers: 7600, priorExistingCustomers: 29470,
+      repeatRatePct: 64, // existing share of purchasers (authored context stat)
+    },
+
+    /* ── 11.5 creativeMeta — per-creative caption (the ad's on-screen copy) + asset
+     * kind (video|static), for the Creative-Performance thumbnail + caption view.
+     * Keyed by ATLAS.creatives[].id. Revenue per creative is COMPUTED in-screen =
+     * spendUsd × roas. All captions are AUTHORED preview copy. ──────────────────── */
+    creativeMeta: {
+      "macro-tracking": { caption: "POV: every macro finally hits its target — no weighing, no guessing.", kind: "video" },
+      "weight-loss":    { caption: "30 days, same person, real food. Here's the receipts.",                kind: "video" },
+      "before-after":   { caption: "I didn't change my life. I changed my lunch. Swipe for the proof.",     kind: "video" },
+      "national-day":   { caption: "نفتخر بصحتك 🇸🇦 — National Day, same goal: eat better, feel better.",     kind: "static" },
+      "ramadan-prep":   { caption: "Suhoor sorted in 4 minutes — real customers on what got them through.",  kind: "video" },
+      "gym-reel":       { caption: "Train hard, eat right — your macros are already done.",                  kind: "video" },
+      "founder-story":  { caption: "Why I started Calo: I couldn't find real, healthy food that fit my day.", kind: "video" },
+      "chef-asmr":      { caption: "The sound of a perfectly plated meal. (ASMR · no talking.)",             kind: "video" },
+    },
+
+    /* ── 11.6 fatigue — once-successful ads that decayed → refresh due. Each carries
+     * frequency vs the 3.0 fatigue band, peak→current ROAS, and a cacHistory that
+     * reconciles to ATLAS.creatives / lossAutopsy. status ∈ refresh|watch|healthy.
+     * (Founder Story ties to lossAutopsy.saturated + pulse anomaly an3.) ────────── */
+    fatigue: {
+      band: 3.0, // frequency at/above which fatigue is flagged
+      items: [
+        { id: "founder-story", name: "Founder Story: Why Calo", platform: "meta",     market: "KSA", frequency: 4.1, peakRoas: 3.1, currentRoas: 2.4, daysLive: 54, status: "refresh", cacHistory: [150, 148, 152, 190, 240], note: "Frequency 4.1 past the 3.0 band — ROAS decayed 3.1×→2.4× in 3 weeks. Refresh the creative." },
+        { id: "chef-asmr",     name: "Chef Plating ASMR",      platform: "tiktok",   market: "KSA", frequency: 3.4, peakRoas: 2.2, currentRoas: 1.7, daysLive: 41, status: "refresh", cacHistory: [168, 172, 176, 180, 184], note: "Slow grind down, never recovered — retire or fully re-cut." },
+        { id: "national-day",  name: "Saudi National Day",     platform: "snapchat", market: "KSA", frequency: 2.8, peakRoas: 3.6, currentRoas: 3.5, daysLive: 22, status: "watch",   cacHistory: [136, 137, 138, 139, 139], note: "Nearing the band — seasonal, watch frequency the next 7 days." },
+        { id: "before-after",  name: "30-Day Before & After",  platform: "meta",     market: "UAE", frequency: 1.9, peakRoas: 3.5, currentRoas: 3.5, daysLive: 18, status: "healthy", cacHistory: [140, 137, 135, 134, 134], note: "Fresh — frequency 1.9, plenty of headroom to scale." },
+      ],
+    },
+
+    /* ── 11.7 angleIntel — "AI reads the captions + visuals" winning-pattern panel.
+     * winningPattern + summary are AUTHORED; topByType + signal CACs reconcile to
+     * ATLAS.genome (lowest-CAC trait per type), so the screen can re-derive them to
+     * prove the claim. ──────────────────────────────────────────────────────────── */
+    angleIntel: {
+      winningPattern: "Real-customer UGC · problem → relief",
+      summary: "Atlas scans every scored creative's caption and frames. The lowest-Paid-CAC pattern: a real customer, opening on a felt problem and resolving to visible relief (before/after, macro tracking), shot as selfie-video. Polished/ASMR and discount-led hooks post the highest CAC.",
+      scanNote: "Caption + visual scan · 8 creatives · 18 traits",
+      topByType: { hook: "Macro / tracking demo", format: "UGC selfie-video", angle: "Health outcome", talent: "Real customer", language: "Arabic" },
+      signals: [
+        { dim: "Opening hook", winner: "Felt problem in first 2s", winnerCac: 128, loser: "Brand / logo open",  loserCac: 198 },
+        { dim: "Format",       winner: "UGC selfie-video",         winnerCac: 132, loser: "Polished ASMR",      loserCac: 184 },
+        { dim: "Talent",       winner: "Real customer",            winnerCac: 130, loser: "Influencer",         loserCac: 177 },
+        { dim: "Angle",        winner: "Health outcome",           winnerCac: 136, loser: "Price / discount",   loserCac: 189 },
+      ],
+    },
+
+    /* ── 11.8 scaling — scaling-health monitor vs a healthy ~+20% step every 2–3
+     * days. Flags aggressive (too fast, into saturation) + underfunded (winners not
+     * scaling). status ∈ aggressive|underfunded|healthy. macro-uae underfunded ties
+     * to wasteLedger SCALE s1 (Macro Tracking UAE, $3k→+$8k). featured.actual starts
+     * at that $3k/day. ──────────────────────────────────────────────────────────── */
+    scaling: {
+      baselinePct: 20, baselineWindow: "every 2–3 days",
+      items: [
+        { id: "macro-uae",   name: "Macro Tracking Demo",  market: "UAE", merit: 94, roas: 3.4, stepPct: 7,  status: "underfunded", note: "Merit 94, ROAS 3.4× — spend stepping only +7%/3d. Starving a proven winner." },
+        { id: "weight-kwt",  name: "Weight Loss Journey",  market: "KWT", merit: 84, roas: 3.0, stepPct: 9,  status: "underfunded", note: "+9%/3d on a merit-84 winner — push it toward the +20% baseline." },
+        { id: "before-bhr",  name: "30-Day Before & After",market: "BHR", merit: 89, roas: 3.3, stepPct: 19, status: "healthy",     note: "+19% every 2–3 days — textbook compounding ramp." },
+        { id: "national-ksa",name: "Saudi National Day",   market: "KSA", merit: 86, roas: 3.5, stepPct: 22, status: "healthy",     note: "+22%/2d — right on baseline; watch the seasonal fade." },
+        { id: "founder-ksa", name: "Founder Story",        market: "KSA", merit: 58, roas: 2.4, stepPct: 48, status: "aggressive",  note: "+48% every 2 days into a saturated ad — CAC ballooned $150→$240. Pull back." },
+        { id: "chef-ksa",    name: "Chef Plating ASMR",    market: "KSA", merit: 38, roas: 1.7, stepPct: 33, status: "aggressive",  note: "+33%/2d on a merit-38 loser — scaling a bad ad faster won't fix it." },
+      ],
+      featured: {
+        name: "Macro Tracking Demo · UAE", unit: "daily spend",
+        days: ["D1", "D4", "D7", "D10", "D13", "D16", "D19", "D22"],
+        actual:   [3000, 3150, 3300, 3470, 3640, 3820, 4010, 4210],     // ~+5%/3d (underfunded)
+        baseline: [3000, 3600, 4320, 5180, 6220, 7460, 8950, 10740],    // +20%/3d healthy ramp
+      },
+    },
+
+    /* ── 11.9 compare — multi-dimension comparison data (the Compare screen).
+     * Three dimensions per the locked mapping: channel = ad network · marketing
+     * platform = market/country (KMP ≈ a market group) · source = app vs web. Each
+     * row carries current + prior so the screen computes % up/down. Spend sums tie
+     * out on EVERY dimension: Σ current = 578k, Σ prior = 528k. Revenue (shown
+     * in-screen) = spend × roas. ────────────────────────────────────────────────── */
+    compare: {
+      metrics: ["spend", "revenue", "roas", "paidCac"], // the metrics compared across dimensions
+      dimensions: [
+        { key: "channel",  label: "Channel",           sub: "ad network",        rowsKey: "channels" },
+        { key: "market",   label: "Marketing Platform", sub: "market / country", rowsKey: "marketingPlatforms" },
+        { key: "source",   label: "Source",            sub: "app vs web",        rowsKey: "sources" },
+      ],
+      // CHANNEL — Σ spend 178+171+121+84+24 = 578 ✓ · Σ prior 165+148+116+78+21 = 528 ✓
+      channels: [
+        { code: "meta",     name: "Meta",     color: "#0EA5E9", spend_k: 178, roas: 2.5, paidCac: 162, priorSpend_k: 165, priorRoas: 2.4, priorPaidCac: 170 },
+        { code: "tiktok",   name: "TikTok",   color: "#27272A", spend_k: 171, roas: 3.0, paidCac: 142, priorSpend_k: 148, priorRoas: 2.8, priorPaidCac: 150 },
+        { code: "google",   name: "Google",   color: "#F97316", spend_k: 121, roas: 2.3, paidCac: 168, priorSpend_k: 116, priorRoas: 2.2, priorPaidCac: 172 },
+        { code: "arabyads", name: "ArabyAds", color: "#8B5CF6", spend_k: 84,  roas: 2.4, paidCac: 158, priorSpend_k: 78,  priorRoas: 2.3, priorPaidCac: 162 },
+        { code: "snapchat", name: "Snapchat", color: "#F59E0B", spend_k: 24,  roas: 3.1, paidCac: 145, priorSpend_k: 21,  priorRoas: 2.9, priorPaidCac: 150 },
+      ],
+      // MARKETING PLATFORM — Σ spend = 578 ✓ · Σ newCusts = 8,520 ✓ (mirrors ATLAS.markets)
+      marketingPlatforms: [
+        { code: "KSA", name: "KSA", color: "#F97316", spend_k: 318, roas: 2.6,  paidCac: 168, newCusts: 4600, priorSpend_k: 300, priorRoas: 2.5, priorPaidCac: 178, note: "biggest" },
+        { code: "UAE", name: "UAE", color: "#10B981", spend_k: 112, roas: 3.0,  paidCac: 125, newCusts: 2080, priorSpend_k: 100, priorRoas: 2.8, priorPaidCac: 132, note: "most efficient" },
+        { code: "KWT", name: "KWT", color: "#0EA5E9", spend_k: 58,  roas: 2.7,  paidCac: 152, newCusts: 720,  priorSpend_k: 55,  priorRoas: 2.6, priorPaidCac: 158, note: "" },
+        { code: "QAT", name: "QAT", color: "#8B5CF6", spend_k: 41,  roas: 2.1,  paidCac: 188, newCusts: 430,  priorSpend_k: 40,  priorRoas: 2.2, priorPaidCac: 184, note: "weakest ROAS" },
+        { code: "BHR", name: "BHR", color: "#14B8A6", spend_k: 37,  roas: 2.4,  paidCac: 142, newCusts: 540,  priorSpend_k: 31,  priorRoas: 2.3, priorPaidCac: 148, note: "" },
+        { code: "OMN", name: "OMN", color: "#6366F1", spend_k: 12,  roas: null, paidCac: 210, newCusts: 150,  priorSpend_k: 2,   priorRoas: null, priorPaidCac: null, coldStart: true, note: "NEW · cold-start" },
+      ],
+      // SOURCE — app vs web. App ≈ 89% of revenue (486×2.75=1336.5 → 89.0%) at ~10× web order value.
+      sources: [
+        { code: "app", name: "App", color: "#10B981", spend_k: 486, roas: 2.75, paidCac: 148, revenueShare: 89, aov: 312, priorSpend_k: 442, priorRoas: 2.6, priorPaidCac: 158 },
+        { code: "web", name: "Web", color: "#A1A1AA", spend_k: 92,  roas: 1.80, paidCac: 205, revenueShare: 11, aov: 31,  priorSpend_k: 86,  priorRoas: 1.7, priorPaidCac: 214 },
+      ],
     },
   };
 })();

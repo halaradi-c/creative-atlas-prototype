@@ -128,6 +128,7 @@
 [data-screen="daily-pulse"]           { --accent: var(--c-teal);    --accent-soft: var(--c-teal-soft);    }
 [data-screen="ask-calo"]              { --accent: var(--c-indigo);  --accent-soft: var(--c-indigo-soft);  }
 [data-screen="frontier"]              { --accent: var(--c-fuchsia); --accent-soft: var(--c-fuchsia-soft); }
+[data-screen="compare"]               { --accent: var(--c-cyan);    --accent-soft: var(--c-cyan-soft);    }
 
 /* =============================================================================
  * 2. RESET + BASE
@@ -710,6 +711,15 @@ input:focus-visible,
   color: var(--neutral-text);
 }
 .delta-chip.neutral .arrow { display: none; }
+
+/* Tone WINS over direction (global). A direction class (.up/.down) owns the arrow
+ * glyph; when an explicit tone-* class is present it owns the COLOR — so a falling
+ * Paid CAC (.down.tone-positive) paints green everywhere, not just on one screen.
+ * These come last at equal specificity, so source order makes tone win. */
+.delta-chip.tone-positive { background: var(--positive-bg); color: var(--positive-text); }
+.delta-chip.tone-negative { background: var(--negative-bg); color: var(--negative-text); }
+.delta-chip.tone-warning  { background: var(--warning-bg);  color: var(--warning-text); }
+.delta-chip.tone-neutral  { background: var(--neutral-bg);  color: var(--neutral-text); }
 
 /* =============================================================================
  * 9. STATUS PILL (SOURCES §2.6 — always dot + text, never color-only)
@@ -1441,4 +1451,29 @@ button:disabled,
 @media (max-width: 767px) {
   .kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .stack, .grid-row { gap: 16px; }
+}
+
+/* =============================================================================
+ * 30. PRINT / PDF EXPORT  (Export → "PDF" calls window.print())
+ *     Renders the CURRENT screen as a clean one-column report: chrome + overlays
+ *     hidden, a small report header shown, all .reveal cards forced visible.
+ * ========================================================================== */
+.print-head { display: none; }
+@media print {
+  .sidebar, .topbar, .cmdk-scrim, .menu, .atlas-toast { display: none !important; }
+  .app { display: block; }
+  .main { height: auto; overflow: visible; }
+  .page-wrap { max-width: none; padding: 0; }
+  .screen[hidden] { display: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+  .card, .insight-banner, section, tr { break-inside: avoid; }
+  .card { box-shadow: none; }
+  body { background: #fff; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 0 12px; margin-bottom: 16px; border-bottom: 1.5px solid var(--ink-200);
+  }
+  .print-head .ph-title { font-size: 15px; font-weight: 700; color: var(--ink-900); }
+  .print-head .ph-meta  { font-size: 11px; font-weight: 500; color: var(--ink-500); }
+  @page { margin: 14mm; }
 }
